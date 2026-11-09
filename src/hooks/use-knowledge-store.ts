@@ -15,8 +15,11 @@ export function useKnowledgeStore() {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    setPacks(loadStore().packs)
-    setReady(true)
+    const frame = requestAnimationFrame(() => {
+      setPacks(loadStore().packs)
+      setReady(true)
+    })
+    return () => cancelAnimationFrame(frame)
   }, [])
 
   useEffect(() => {

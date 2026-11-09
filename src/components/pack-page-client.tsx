@@ -4,27 +4,12 @@ import { PackWorkspace } from "@/components/pack-workspace"
 import { Button } from "@/components/ui/button"
 import { useKnowledgeStore } from "@/hooks/use-knowledge-store"
 import Link from "next/link"
-import { useEffect, useState } from "react"
-import type { KnowledgePack } from "@/lib/types"
 
 export function PackPageClient({ id }: { id: string }) {
   const { ready, getPack, savePack } = useKnowledgeStore()
-  const [pack, setPack] = useState<KnowledgePack | null>(null)
-  const [missing, setMissing] = useState(false)
+  const pack = ready ? getPack(id) : undefined
 
-  useEffect(() => {
-    if (!ready) return
-    const found = getPack(id)
-    if (!found) {
-      setMissing(true)
-      setPack(null)
-      return
-    }
-    setMissing(false)
-    setPack(found)
-  }, [ready, getPack, id])
-
-  if (!ready || (!pack && !missing)) {
+  if (!ready) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-sm text-[var(--ink-muted)]">
         Opening pack…
@@ -32,7 +17,7 @@ export function PackPageClient({ id }: { id: string }) {
     )
   }
 
-  if (missing || !pack) {
+  if (!pack) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
         <h1 className="font-[family-name:var(--font-display)] text-3xl text-[var(--ink)]">
@@ -52,7 +37,6 @@ export function PackPageClient({ id }: { id: string }) {
     <PackWorkspace
       pack={pack}
       onChange={(next) => {
-        setPack(next)
         savePack(next)
       }}
     />
