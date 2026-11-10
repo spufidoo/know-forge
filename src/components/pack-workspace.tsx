@@ -21,7 +21,7 @@ import {
   type EntryKind,
   type KnowledgePack,
 } from "@/lib/types"
-import { ArrowLeft, Plus } from "lucide-react"
+import { ArrowLeft, Mic, Plus } from "lucide-react"
 import Link from "next/link"
 import { useMemo, useState } from "react"
 
@@ -124,7 +124,15 @@ export function PackWorkspace({
             </p>
           </div>
         </div>
-        <ExportPanel pack={pack} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href={`/pack/${pack.id}/record`}>
+              <Mic className="size-4" />
+              Record interview
+            </Link>
+          </Button>
+          <ExportPanel pack={pack} />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -133,27 +141,29 @@ export function PackWorkspace({
             value={tab}
             onValueChange={(v) => setTab(v as EntryKind | "overview")}
           >
-            <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="heuristic">
+            <TabsList className="mb-4 flex h-8 w-full flex-nowrap justify-start gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <TabsTrigger value="overview" className="h-7 flex-none px-2.5">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="heuristic" className="h-7 flex-none px-2.5">
                 Heuristics
                 <Badge variant="secondary" className="ml-1.5">
                   {counts.heuristics}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="procedure">
+              <TabsTrigger value="procedure" className="h-7 flex-none px-2.5">
                 Procedures
                 <Badge variant="secondary" className="ml-1.5">
                   {counts.procedures}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="gotcha">
+              <TabsTrigger value="gotcha" className="h-7 flex-none px-2.5">
                 Gotchas
                 <Badge variant="secondary" className="ml-1.5">
                   {counts.gotchas}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="term">
+              <TabsTrigger value="term" className="h-7 flex-none px-2.5">
                 Glossary
                 <Badge variant="secondary" className="ml-1.5">
                   {counts.terms}
@@ -163,7 +173,7 @@ export function PackWorkspace({
 
             <TabsContent value="overview" className="space-y-6">
               <section className="rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-5 sm:p-6">
-                <h2 className="mb-4 font-[family-name:var(--font-display)] text-xl text-[var(--ink)]">
+                <h2 className="mb-4 text-[0.7rem] font-medium uppercase tracking-[0.14em] text-[var(--ink-muted)]">
                   Pack framing
                 </h2>
                 <PackMetaForm value={pack} onChange={onChange} />

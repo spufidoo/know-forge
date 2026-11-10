@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/empty-state"
 import { Button } from "@/components/ui/button"
 import { useKnowledgeStore } from "@/hooks/use-knowledge-store"
 import { emptyPack, packCounts } from "@/lib/types"
-import { ArrowRight, BookOpen, Plus, Sparkles } from "lucide-react"
+import { ArrowRight, BookOpen, Mic, Plus, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -69,7 +69,8 @@ export function HomeClient() {
           </h1>
           <p className="mt-4 max-w-lg text-base leading-relaxed text-[var(--ink-muted)]">
             Elicit heuristics, procedures, gotchas, and glossary terms into
-            agent-ready knowledge packs — structured memory for agentic AI.
+            agent-ready knowledge packs — or record expert conversations on
+            Android and extract the judgment into structured memory.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button size="lg" onClick={createPack}>
@@ -81,6 +82,10 @@ export function HomeClient() {
               Load sample pack
             </Button>
           </div>
+          <p className="mt-4 max-w-lg text-sm text-[var(--ink-muted)]">
+            On Android Chrome: open the site menu → <span className="text-[var(--ink)]">Install app</span>{" "}
+            for a full-screen recorder with microphone access.
+          </p>
         </div>
 
         <div className="animate-rise-delay relative overflow-hidden rounded-[1.5rem] border border-[var(--line)] bg-[var(--ink)] p-6 text-[var(--mist)] shadow-[0_30px_80px_rgba(6,42,50,0.25)] sm:p-8">
@@ -152,6 +157,12 @@ export function HomeClient() {
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       <Button asChild size="sm">
                         <Link href={`/pack/${pack.id}`}>Open</Link>
+                      </Button>
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={`/pack/${pack.id}/record`}>
+                          <Mic className="size-3.5" />
+                          Record
+                        </Link>
                       </Button>
                       <Button
                         size="sm"
