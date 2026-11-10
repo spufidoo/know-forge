@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Knowledge Elicitation Studio
 
 **KE Studio** — knowledge elicitation for encapsulating tribal knowledge into agent-ready packs.
