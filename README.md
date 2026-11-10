@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Knowledge Elicitation Studio
 
 **KE Studio** — knowledge elicitation for encapsulating tribal knowledge into agent-ready packs.
@@ -50,3 +51,7 @@ Data stays in browser storage — nothing is sent to a server.
 - `npm run build` — production build
 - `npm run start` — serve production build on port 3847
 - `npm run lint` — ESLint
+=======
+# know-forge
+Knowledge Elicitation Studio
+>>>>>>> fd2e4f93a91765dd12c05a75223c28093a13579f
