@@ -9,6 +9,7 @@ import { HeuristicEditor } from "@/components/editors/heuristic-editor"
 import { ProcedureEditor } from "@/components/editors/procedure-editor"
 import { TermEditor } from "@/components/editors/term-editor"
 import { PackMetaForm } from "@/components/pack-meta-form"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -125,6 +126,7 @@ export function PackWorkspace({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ThemeToggle />
           <Button asChild variant="outline">
             <Link href={`/pack/${pack.id}/record`}>
               <Mic className="size-4" />
@@ -140,41 +142,60 @@ export function PackWorkspace({
           <Tabs
             value={tab}
             onValueChange={(v) => setTab(v as EntryKind | "overview")}
+            orientation="horizontal"
+            className="flex w-full min-w-0 flex-col gap-4"
           >
-            <TabsList className="mb-4 flex h-8 w-full flex-nowrap justify-start gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <TabsTrigger value="overview" className="h-7 flex-none px-2.5">
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="heuristic" className="h-7 flex-none px-2.5">
-                Heuristics
-                <Badge variant="secondary" className="ml-1.5">
-                  {counts.heuristics}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="procedure" className="h-7 flex-none px-2.5">
-                Procedures
-                <Badge variant="secondary" className="ml-1.5">
-                  {counts.procedures}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="gotcha" className="h-7 flex-none px-2.5">
-                Gotchas
-                <Badge variant="secondary" className="ml-1.5">
-                  {counts.gotchas}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="term" className="h-7 flex-none px-2.5">
-                Glossary
-                <Badge variant="secondary" className="ml-1.5">
-                  {counts.terms}
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
+            <div className="relative z-10 w-full max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <TabsList className="inline-flex h-9 w-max max-w-none flex-nowrap items-center justify-start gap-1">
+                <TabsTrigger
+                  value="overview"
+                  className="h-7 shrink-0 flex-none px-2.5"
+                >
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger
+                  value="heuristic"
+                  className="h-7 shrink-0 flex-none px-2.5"
+                >
+                  Heuristics
+                  <Badge variant="secondary" className="ml-1.5">
+                    {counts.heuristics}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="procedure"
+                  className="h-7 shrink-0 flex-none px-2.5"
+                >
+                  Procedures
+                  <Badge variant="secondary" className="ml-1.5">
+                    {counts.procedures}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="gotcha"
+                  className="h-7 shrink-0 flex-none px-2.5"
+                >
+                  Gotchas
+                  <Badge variant="secondary" className="ml-1.5">
+                    {counts.gotchas}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="term"
+                  className="h-7 shrink-0 flex-none px-2.5"
+                >
+                  Glossary
+                  <Badge variant="secondary" className="ml-1.5">
+                    {counts.terms}
+                  </Badge>
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-            <TabsContent value="overview" className="space-y-6">
+            <TabsContent value="overview" className="mt-0 space-y-6">
               <section className="rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-5 sm:p-6">
                 <h2 className="mb-4 text-[0.7rem] font-medium uppercase tracking-[0.14em] text-[var(--ink-muted)]">
-                  Pack framing
+                  Overview
                 </h2>
                 <PackMetaForm value={pack} onChange={onChange} />
               </section>

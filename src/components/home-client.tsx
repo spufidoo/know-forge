@@ -1,6 +1,7 @@
 "use client"
 
 import { EmptyState } from "@/components/empty-state"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { useKnowledgeStore } from "@/hooks/use-knowledge-store"
 import { emptyPack, packCounts } from "@/lib/types"
@@ -30,13 +31,14 @@ export function HomeClient() {
   return (
     <div className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -left-24 top-0 h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(31,168,122,0.22),transparent_70%)] blur-2xl" />
-        <div className="absolute right-0 top-20 h-[32rem] w-[32rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(6,42,50,0.18),transparent_68%)] blur-2xl" />
+        <div className="absolute -left-24 top-0 h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle_at_center,var(--glow-a),transparent_70%)] blur-2xl" />
+        <div className="absolute right-0 top-20 h-[32rem] w-[32rem] rounded-full bg-[radial-gradient(circle_at_center,var(--glow-b),transparent_68%)] blur-2xl" />
+        <div className="absolute bottom-10 left-1/3 h-64 w-64 -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,var(--glow-a),transparent_70%)] opacity-70 blur-3xl" />
         <div
-          className="absolute inset-0 opacity-[0.35]"
+          className="absolute inset-0 opacity-40"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(6,42,50,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(6,42,50,0.05) 1px, transparent 1px)",
+              "linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px)",
             backgroundSize: "48px 48px",
             maskImage:
               "radial-gradient(ellipse at 50% 20%, black 20%, transparent 75%)",
@@ -44,7 +46,7 @@ export function HomeClient() {
         />
       </div>
 
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-5 sm:px-6 lg:px-8">
         <div className="flex items-baseline gap-2">
           <span className="font-[family-name:var(--font-display)] text-2xl tracking-tight text-[var(--ink)]">
             Tribal
@@ -53,10 +55,13 @@ export function HomeClient() {
             Knowledge elicitation
           </span>
         </div>
-        <Button onClick={createPack}>
-          <Plus className="size-4" />
-          New pack
-        </Button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Button onClick={createPack}>
+            <Plus className="size-4" />
+            New pack
+          </Button>
+        </div>
       </header>
 
       <section className="mx-auto grid min-h-[72vh] w-full max-w-6xl items-center gap-10 px-4 pb-10 pt-6 sm:px-6 lg:grid-cols-[1.15fr_0.85fr] lg:px-8 lg:pt-4">

@@ -1,6 +1,7 @@
 "use client"
 
 import { AnalysisReview } from "@/components/interview/analysis-review"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -197,13 +198,16 @@ export function InterviewWorkspace({
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 sm:px-6">
       <div className="mb-6 space-y-3">
-        <Link
-          href={`/pack/${pack.id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
-        >
-          <ArrowLeft className="size-3.5" />
-          Back to pack
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link
+            href={`/pack/${pack.id}`}
+            className="inline-flex items-center gap-1.5 text-sm text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
+          >
+            <ArrowLeft className="size-3.5" />
+            Back to pack
+          </Link>
+          <ThemeToggle />
+        </div>
         <div>
           <p className="font-mono text-[0.65rem] uppercase tracking-[0.2em] text-[var(--signal)]">
             Android interview mode
