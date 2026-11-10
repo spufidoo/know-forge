@@ -47,12 +47,12 @@ export function HomeClient() {
       </div>
 
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-5 sm:px-6 lg:px-8">
-        <div className="flex items-baseline gap-2">
-          <span className="font-[family-name:var(--font-display)] text-2xl tracking-tight text-[var(--ink)]">
-            Tribal
+        <div className="flex min-w-0 items-baseline gap-2">
+          <span className="font-[family-name:var(--font-display)] text-xl tracking-tight text-[var(--ink)] sm:hidden">
+            KE Studio
           </span>
-          <span className="hidden text-xs uppercase tracking-[0.18em] text-[var(--ink-muted)] sm:inline">
-            Knowledge elicitation
+          <span className="hidden font-[family-name:var(--font-display)] text-xl tracking-tight text-[var(--ink)] sm:inline sm:text-2xl">
+            Knowledge Elicitation Studio
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -66,8 +66,11 @@ export function HomeClient() {
 
       <section className="mx-auto grid min-h-[72vh] w-full max-w-6xl items-center gap-10 px-4 pb-10 pt-6 sm:px-6 lg:grid-cols-[1.15fr_0.85fr] lg:px-8 lg:pt-4">
         <div className="animate-rise">
-          <p className="font-[family-name:var(--font-display)] text-5xl leading-[0.95] tracking-tight text-[var(--ink)] sm:text-6xl lg:text-7xl">
-            Tribal
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-[var(--signal)]">
+            KE Studio
+          </p>
+          <p className="mt-3 font-[family-name:var(--font-display)] text-4xl leading-[0.98] tracking-tight text-[var(--ink)] sm:text-5xl lg:text-6xl">
+            Knowledge Elicitation Studio
           </p>
           <h1 className="mt-5 max-w-xl text-2xl leading-snug text-[var(--ink)] sm:text-3xl">
             Encapsulate the judgment that never made the wiki.

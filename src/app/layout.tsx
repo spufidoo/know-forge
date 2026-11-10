@@ -24,14 +24,14 @@ const mono = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Tribal — Knowledge elicitation for agentic AI",
+  title: "Knowledge Elicitation Studio — Agent-ready tribal knowledge",
   description:
     "Capture tribal heuristics, procedures, gotchas, and glossary terms as agent-ready knowledge packs. Record expert interviews on Android and extract structured memory.",
-  applicationName: "Tribal",
+  applicationName: "Knowledge Elicitation Studio",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Tribal",
+    title: "KE Studio",
   },
   formatDetection: {
     telephone: false,

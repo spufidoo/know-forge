@@ -1,5 +1,5 @@
-/* Tribal offline shell — caches app shell for Android PWA install. */
-const CACHE = "tribal-shell-v1"
+/* KE Studio offline shell — caches app shell for Android PWA install. */
+const CACHE = "ke-studio-shell-v1"
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -1,16 +1,16 @@
-# Tribal
+# Knowledge Elicitation Studio
 
-Knowledge elicitation for encapsulating tribal knowledge into agent-ready packs.
+**KE Studio** — knowledge elicitation for encapsulating tribal knowledge into agent-ready packs.
 
 Interview experts, capture **heuristics**, **procedures**, **gotchas**, and **glossary** terms, then export structured memory for agentic AI (`tribal.agent-pack/v1` JSON or Markdown).
 
 ## Android app (PWA)
 
-Tribal installs as a standalone Android app from Chrome:
+Knowledge Elicitation Studio installs as a standalone Android app from Chrome:
 
 1. Open the site in **Chrome on Android**.
 2. Tap the browser menu → **Install app** / **Add to Home screen** (or use the in-app install banner).
-3. Launch **Tribal** from your home screen.
+3. Launch **KE Studio** from your home screen.
 4. Open a pack → **Record interview**.
 5. Record with consent, review the transcript, **Analyze**, accept candidates, and add them to the pack.
 

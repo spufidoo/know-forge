@@ -386,7 +386,7 @@ export function buildAnalysisBrief(input: {
 }) {
   const pending = input.candidates.filter((c) => c.status !== "rejected")
   return [
-    `# Tribal interview analysis brief`,
+    `# KE Studio interview analysis brief`,
     "",
     `Pack: ${input.packName || "Untitled pack"}`,
     `Expert: ${input.expertName || "Unnamed"}`,

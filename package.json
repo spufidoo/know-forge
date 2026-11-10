@@ -1,5 +1,5 @@
 {
-  "name": "tribal",
+  "name": "ke-studio",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -31,5 +31,5 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "description": "Knowledge elicitation tool for capturing tribal heuristics for agentic AI"
+  "description": "Knowledge Elicitation Studio (KE Studio) — capture tribal heuristics for agentic AI"
 }

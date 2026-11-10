@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Tribal — Expert interview recorder",
-    short_name: "Tribal",
+    name: "Knowledge Elicitation Studio",
+    short_name: "KE Studio",
     description:
       "Record expert conversations and extract tribal knowledge into agent-ready packs.",
     start_url: "/",
