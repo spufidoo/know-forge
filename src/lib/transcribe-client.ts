@@ -5,6 +5,7 @@ export async function transcribeAudioFile(file: Blob, filename = "interview.webm
   const res = await fetch("/api/transcribe", {
     method: "POST",
     body,
+    credentials: "same-origin",
   })
 
   const json = (await res.json().catch(() => ({}))) as {

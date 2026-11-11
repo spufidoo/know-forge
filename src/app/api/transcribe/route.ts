@@ -1,3 +1,5 @@
+import { requireIdentity } from "../../../../cursor/identity"
+
 const MAX_BYTES = 24 * 1024 * 1024
 const ALLOWED_PREFIXES = ["audio/", "video/"]
 const ALLOWED_EXTS = [".webm", ".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".mpeg", ".mpga"]
@@ -10,6 +12,9 @@ function isAllowedFile(file: File) {
 }
 
 export async function POST(request: Request) {
+  const identity = await requireIdentity(request)
+  if (identity instanceof Response) return identity
+
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
     return Response.json(
@@ -87,12 +92,21 @@ export async function POST(request: Request) {
     )
   }
 
-  return Response.json({ text })
+  return Response.json(
+    { text },
+    { headers: { "cache-control": "private, no-store" } },
+  )
 }
 
-export async function GET() {
-  return Response.json({
-    configured: Boolean(process.env.OPENAI_API_KEY),
-    maxBytes: MAX_BYTES,
-  })
+export async function GET(request: Request) {
+  const identity = await requireIdentity(request)
+  if (identity instanceof Response) return identity
+
+  return Response.json(
+    {
+      configured: Boolean(process.env.OPENAI_API_KEY),
+      maxBytes: MAX_BYTES,
+    },
+    { headers: { "cache-control": "private, no-store" } },
+  )
 }
