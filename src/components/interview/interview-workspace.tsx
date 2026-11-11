@@ -98,9 +98,12 @@ export function InterviewWorkspace({
           expertName,
         })
 
-      const transcript = recorder.transcript.trim()
+      const transcript = recorder.getTranscript()
       const candidates =
         transcript.length >= 40 ? analyzeTranscript(transcript) : base.candidates
+      if (transcript !== recorder.transcript) {
+        recorder.setTranscript(transcript)
+      }
 
       const next: InterviewSessionRecord = {
         ...base,
@@ -133,10 +136,13 @@ export function InterviewWorkspace({
   }
 
   const runAnalysis = async () => {
-    const transcript = recorder.transcript.trim()
+    const transcript = recorder.getTranscript()
     if (transcript.length < 40) {
       setNotice("Need a longer transcript before analysis.")
       return
+    }
+    if (transcript !== recorder.transcript) {
+      recorder.setTranscript(transcript)
     }
     const candidates = analyzeTranscript(transcript)
     const existing = activeId ? await load(activeId) : null
@@ -185,7 +191,7 @@ export function InterviewWorkspace({
     const brief = buildAnalysisBrief({
       packName: pack.name,
       expertName,
-      transcript: recorder.transcript,
+      transcript: recorder.getTranscript() || recorder.transcript,
       candidates: activeSession?.candidates ?? [],
     })
     downloadText(

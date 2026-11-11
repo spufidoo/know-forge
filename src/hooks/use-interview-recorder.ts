@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 type SpeechRecognitionLike = {
   continuous: boolean
@@ -47,12 +47,41 @@ function stopTracks(stream: MediaStream | null) {
   stream?.getTracks().forEach((t) => t.stop())
 }
 
+function appendText(base: string, chunk: string) {
+  const trimmed = chunk.trim()
+  if (!trimmed) return base
+  return `${base}${base && !base.endsWith(" ") ? " " : ""}${trimmed} `
+}
+
+function speechErrorMessage(code: string): string | null {
+  switch (code) {
+    case "not-allowed":
+      return "Microphone or speech permission was denied."
+    case "service-not-allowed":
+      return "Speech recognition is blocked on this device or browser."
+    case "network":
+      return "Live transcription needs a network connection and failed to reach the speech service."
+    case "audio-capture":
+      return "No usable microphone was found for live transcription."
+    case "language-not-supported":
+      return "This browser does not support English live transcription."
+    case "bad-grammar":
+      return "Live transcription rejected the recognition settings."
+    case "aborted":
+      return null
+    case "no-speech":
+      return null
+    default:
+      return `Live transcription error: ${code}.`
+  }
+}
+
 export function useInterviewRecorder() {
   const [recording, setRecording] = useState(false)
   const [paused, setPaused] = useState(false)
   const [elapsedMs, setElapsedMs] = useState(0)
-  const [transcript, setTranscript] = useState("")
-  const [interim, setInterim] = useState("")
+  const [transcript, setTranscriptState] = useState("")
+  const [interim, setInterimState] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [speechSupported] = useState(() => Boolean(getSpeechRecognition()))
   const [mimeType, setMimeType] = useState(() => pickMimeType())
@@ -65,6 +94,34 @@ export function useInterviewRecorder() {
   const accumulatedRef = useRef(0)
   const tickRef = useRef<number | null>(null)
   const shouldRestartSpeechRef = useRef(false)
+  const transcriptRef = useRef("")
+  const interimRef = useRef("")
+
+  const setTranscript = useCallback((value: string | ((prev: string) => string)) => {
+    setTranscriptState((prev) => {
+      const next = typeof value === "function" ? value(prev) : value
+      transcriptRef.current = next
+      return next
+    })
+  }, [])
+
+  const commitInterim = useCallback(() => {
+    const chunk = interimRef.current.trim()
+    if (!chunk) {
+      interimRef.current = ""
+      setInterimState("")
+      return
+    }
+    const next = appendText(transcriptRef.current, chunk)
+    transcriptRef.current = next
+    setTranscriptState(next)
+    interimRef.current = ""
+    setInterimState("")
+  }, [])
+
+  const getTranscript = useCallback(() => {
+    return `${transcriptRef.current} ${interimRef.current}`.replace(/\s+/g, " ").trim()
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -102,7 +159,10 @@ export function useInterviewRecorder() {
     streamRef.current = null
   }
 
-  const stopSpeech = () => {
+  const stopSpeech = (opts?: { commitInterim?: boolean }) => {
+    if (opts?.commitInterim !== false) {
+      commitInterim()
+    }
     shouldRestartSpeechRef.current = false
     const recognition = recognitionRef.current
     recognitionRef.current = null
@@ -120,7 +180,7 @@ export function useInterviewRecorder() {
   const startSpeech = () => {
     const Ctor = getSpeechRecognition()
     if (!Ctor) return
-    stopSpeech()
+    stopSpeech({ commitInterim: false })
     const recognition = new Ctor()
     recognition.continuous = true
     recognition.interimResults = true
@@ -137,21 +197,22 @@ export function useInterviewRecorder() {
         else interimChunk += text
       }
       if (finalChunk) {
-        setTranscript(
-          (prev) =>
-            `${prev}${prev && !prev.endsWith(" ") ? " " : ""}${finalChunk.trim()} `,
-        )
+        const next = appendText(transcriptRef.current, finalChunk)
+        transcriptRef.current = next
+        setTranscriptState(next)
       }
-      setInterim(interimChunk)
+      interimRef.current = interimChunk
+      setInterimState(interimChunk)
     }
 
     recognition.onerror = (event) => {
-      if (event.error === "not-allowed") {
-        setError("Microphone or speech permission was denied.")
-      }
+      const message = speechErrorMessage(event.error)
+      if (message) setError(message)
     }
 
     recognition.onend = () => {
+      // Promote sticky interim before Chrome restarts a continuous session.
+      commitInterim()
       if (shouldRestartSpeechRef.current) {
         try {
           recognition.start()
@@ -282,13 +343,13 @@ export function useInterviewRecorder() {
           setElapsedMs(durationMs)
           setRecording(false)
           setPaused(false)
-          setInterim("")
           resolve({ blob, durationMs, mimeType: type })
         }
 
         try {
           recorder.stop()
         } catch {
+          stopSpeech()
           resolve({ blob: null, durationMs: elapsedMs, mimeType })
         }
       },
@@ -305,6 +366,7 @@ export function useInterviewRecorder() {
     mimeType,
     setTranscript,
     setError,
+    getTranscript,
     start,
     pause,
     resume,
