@@ -19,6 +19,7 @@ import {
   type AnalysisCandidate,
   type InterviewSessionRecord,
 } from "@/lib/interview-types"
+import { transcribeAudioFile } from "@/lib/transcribe-client"
 import type { KnowledgePack } from "@/lib/types"
 import {
   ArrowLeft,
@@ -29,9 +30,12 @@ import {
   Sparkles,
   Square,
   Trash2,
+  Upload,
 } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+
+const MAX_UPLOAD_BYTES = 24 * 1024 * 1024
 
 export function InterviewWorkspace({
   pack,
@@ -47,12 +51,33 @@ export function InterviewWorkspace({
   const [activeId, setActiveId] = useState<string | null>(null)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [transcribing, setTranscribing] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const activeSession = useMemo(
     () => sessions.find((s) => s.id === activeId) ?? null,
     [sessions, activeId],
   )
+
+  const ensureTranscriptFromAudio = async (
+    blob: Blob | null | undefined,
+    current: string,
+    filename: string,
+  ) => {
+    if (current.trim().length >= 40 || !blob || blob.size === 0) {
+      return current.trim()
+    }
+    setTranscribing(true)
+    setNotice("Live speech was empty — transcribing the audio recording…")
+    try {
+      const text = await transcribeAudioFile(blob, filename)
+      recorder.setTranscript(text)
+      return text
+    } finally {
+      setTranscribing(false)
+    }
+  }
 
   useEffect(() => {
     return () => {
@@ -98,7 +123,22 @@ export function InterviewWorkspace({
           expertName,
         })
 
-      const transcript = recorder.getTranscript()
+      let transcript = recorder.getTranscript()
+      const ext = stopped.mimeType.includes("mp4") ? "mp4" : "webm"
+      try {
+        transcript = await ensureTranscriptFromAudio(
+          stopped.blob,
+          transcript,
+          `interview.${ext}`,
+        )
+      } catch (err) {
+        setNotice(
+          err instanceof Error
+            ? err.message
+            : "Could not transcribe audio. Paste a transcript or try Upload.",
+        )
+      }
+
       const candidates =
         transcript.length >= 40 ? analyzeTranscript(transcript) : base.candidates
       if (transcript !== recorder.transcript) {
@@ -136,7 +176,26 @@ export function InterviewWorkspace({
   }
 
   const runAnalysis = async () => {
-    const transcript = recorder.getTranscript()
+    let transcript = recorder.getTranscript()
+    if (transcript.length < 40) {
+      const existing = activeId ? await load(activeId) : null
+      if (existing?.audioBlob) {
+        try {
+          transcript = await ensureTranscriptFromAudio(
+            existing.audioBlob,
+            transcript,
+            `interview.${existing.mimeType?.includes("mp4") ? "mp4" : "webm"}`,
+          )
+        } catch (err) {
+          setNotice(
+            err instanceof Error
+              ? err.message
+              : "Need a longer transcript before analysis.",
+          )
+          return
+        }
+      }
+    }
     if (transcript.length < 40) {
       setNotice("Need a longer transcript before analysis.")
       return
@@ -163,6 +222,68 @@ export function InterviewWorkspace({
     const saved = await save(next)
     setActiveId(saved.id)
     setNotice(`Found ${candidates.length} candidate knowledge entries.`)
+  }
+
+  const onUploadAudio = async (file: File | null) => {
+    if (!file) return
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setNotice("Audio must be 24 MB or smaller.")
+      return
+    }
+    const type = (file.type || "").toLowerCase()
+    const name = file.name.toLowerCase()
+    const okType =
+      type.startsWith("audio/") ||
+      type.startsWith("video/") ||
+      [".webm", ".mp3", ".mp4", ".m4a", ".wav", ".ogg"].some((ext) =>
+        name.endsWith(ext),
+      )
+    if (!okType) {
+      setNotice("Unsupported file type. Use webm, mp3, m4a, wav, ogg, or mp4.")
+      return
+    }
+
+    setSaving(true)
+    setNotice(`Uploading and transcribing ${file.name}…`)
+    try {
+      const text = await transcribeAudioFile(file, file.name)
+      recorder.setTranscript(text)
+      const candidates = analyzeTranscript(text)
+      const existing = activeId ? await load(activeId) : null
+      const next: InterviewSessionRecord = {
+        ...(existing ??
+          emptyInterviewSession(pack.id, {
+            title: title || file.name.replace(/\.[^.]+$/, ""),
+            expertName,
+          })),
+        title: title || file.name.replace(/\.[^.]+$/, "") || "Uploaded interview",
+        expertName,
+        transcript: text,
+        durationMs: existing?.durationMs ?? 0,
+        mimeType: file.type || existing?.mimeType || "audio/webm",
+        hasAudio: true,
+        audioBlob: file,
+        status: candidates.length ? "analyzed" : "ready",
+        candidates,
+      }
+      const saved = await save(next)
+      setActiveId(saved.id)
+      setTitle(saved.title)
+      if (audioUrl) URL.revokeObjectURL(audioUrl)
+      setAudioUrl(URL.createObjectURL(file))
+      setNotice(
+        candidates.length
+          ? `Transcribed upload and found ${candidates.length} candidate entries.`
+          : "Transcribed upload. Review the transcript, then analyze.",
+      )
+    } catch (err) {
+      setNotice(
+        err instanceof Error ? err.message : "Upload transcription failed.",
+      )
+    } finally {
+      setSaving(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
   }
 
   const updateCandidates = async (candidates: AnalysisCandidate[]) => {
@@ -263,8 +384,11 @@ export function InterviewWorkspace({
                     : "Recording…"
                   : "Ready"}
                 {recorder.speechSupported
-                  ? " · Live transcription on"
-                  : " · Paste transcript after recording"}
+                  ? recorder.speechListening
+                    ? " · Live STT listening"
+                    : " · Live STT ready"
+                  : " · Paste / upload transcript"}
+                {transcribing ? " · Transcribing…" : ""}
               </p>
             </div>
             <div
@@ -316,10 +440,27 @@ export function InterviewWorkspace({
               size="lg"
               variant="outline"
               className="border-white/20 bg-transparent text-[var(--mist)]"
+              disabled={saving || transcribing || recorder.recording}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="size-4" />
+              Upload audio
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="border-white/20 bg-transparent text-[var(--mist)]"
               onClick={startFresh}
             >
               New session
             </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*,video/mp4,video/webm,.mp3,.m4a,.wav,.ogg,.webm,.mp4"
+              className="hidden"
+              onChange={(e) => void onUploadAudio(e.target.files?.[0] ?? null)}
+            />
           </div>
 
           {recorder.error ? (
@@ -337,7 +478,12 @@ export function InterviewWorkspace({
             Transcript
           </h2>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => void runAnalysis()}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving || transcribing}
+              onClick={() => void runAnalysis()}
+            >
               <Sparkles className="size-4" />
               Analyze
             </Button>
@@ -350,7 +496,7 @@ export function InterviewWorkspace({
         <Textarea
           value={recorder.transcript}
           onChange={(e) => recorder.setTranscript(e.target.value)}
-          placeholder="Live speech-to-text appears here on Chrome Android. You can also paste a transcript."
+          placeholder="Live speech-to-text appears here when the phone supports it. Otherwise stop to auto-transcribe, upload audio, or paste text."
           className="min-h-40 bg-[var(--panel-2)]"
         />
         {recorder.interim ? (

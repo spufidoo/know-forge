@@ -1,5 +1,5 @@
 /* KE Studio offline shell — caches app shell for Android PWA install. */
-const CACHE = "ke-studio-shell-v1"
+const CACHE = "ke-studio-shell-v3"
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -23,23 +23,21 @@ self.addEventListener("fetch", (event) => {
   const { request } = event
   if (request.method !== "GET") return
 
+  // Network-first so phone installs pick up STT/transcribe fixes quickly.
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const networked = fetch(request)
-        .then((response) => {
-          if (
-            response &&
-            response.status === 200 &&
-            (request.url.startsWith(self.location.origin) ||
-              request.mode === "navigate")
-          ) {
-            const copy = response.clone()
-            caches.open(CACHE).then((cache) => cache.put(request, copy))
-          }
-          return response
-        })
-        .catch(() => cached)
-      return cached || networked
-    }),
+    fetch(request)
+      .then((response) => {
+        if (
+          response &&
+          response.status === 200 &&
+          (request.url.startsWith(self.location.origin) ||
+            request.mode === "navigate")
+        ) {
+          const copy = response.clone()
+          caches.open(CACHE).then((cache) => cache.put(request, copy))
+        }
+        return response
+      })
+      .catch(() => caches.match(request).then((cached) => cached || Response.error())),
   )
 })

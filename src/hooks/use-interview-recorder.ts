@@ -6,8 +6,11 @@ type SpeechRecognitionLike = {
   continuous: boolean
   interimResults: boolean
   lang: string
+  maxAlternatives?: number
   start: () => void
   stop: () => void
+  abort?: () => void
+  onstart: ((event: Event) => void) | null
   onresult: ((event: SpeechRecognitionEventLike) => void) | null
   onerror: ((event: { error: string }) => void) | null
   onend: (() => void) | null
@@ -70,6 +73,7 @@ function speechErrorMessage(code: string): string | null {
     case "aborted":
       return null
     case "no-speech":
+      // On phones this often fires while MediaRecorder holds the mic — surface once via watchdog instead.
       return null
     default:
       return `Live transcription error: ${code}.`
@@ -84,6 +88,7 @@ export function useInterviewRecorder() {
   const [interim, setInterimState] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [speechSupported] = useState(() => Boolean(getSpeechRecognition()))
+  const [speechListening, setSpeechListening] = useState(false)
   const [mimeType, setMimeType] = useState(() => pickMimeType())
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -93,7 +98,9 @@ export function useInterviewRecorder() {
   const startedAtRef = useRef<number | null>(null)
   const accumulatedRef = useRef(0)
   const tickRef = useRef<number | null>(null)
+  const watchdogRef = useRef<number | null>(null)
   const shouldRestartSpeechRef = useRef(false)
+  const gotSpeechResultRef = useRef(false)
   const transcriptRef = useRef("")
   const interimRef = useRef("")
 
@@ -123,8 +130,16 @@ export function useInterviewRecorder() {
     return `${transcriptRef.current} ${interimRef.current}`.replace(/\s+/g, " ").trim()
   }, [])
 
+  const clearWatchdog = () => {
+    if (watchdogRef.current != null) {
+      window.clearTimeout(watchdogRef.current)
+      watchdogRef.current = null
+    }
+  }
+
   useEffect(() => {
     return () => {
+      clearWatchdog()
       if (tickRef.current != null) {
         window.clearInterval(tickRef.current)
         tickRef.current = null
@@ -133,6 +148,7 @@ export function useInterviewRecorder() {
       const recognition = recognitionRef.current
       recognitionRef.current = null
       if (recognition) {
+        recognition.onstart = null
         recognition.onend = null
         recognition.onresult = null
         recognition.onerror = null
@@ -163,10 +179,13 @@ export function useInterviewRecorder() {
     if (opts?.commitInterim !== false) {
       commitInterim()
     }
+    clearWatchdog()
     shouldRestartSpeechRef.current = false
+    setSpeechListening(false)
     const recognition = recognitionRef.current
     recognitionRef.current = null
     if (!recognition) return
+    recognition.onstart = null
     recognition.onend = null
     recognition.onresult = null
     recognition.onerror = null
@@ -179,15 +198,36 @@ export function useInterviewRecorder() {
 
   const startSpeech = () => {
     const Ctor = getSpeechRecognition()
-    if (!Ctor) return
+    if (!Ctor) {
+      setError(
+        "This browser has no live speech recognition. Audio will still record — use Upload or server transcription after stop.",
+      )
+      return
+    }
     stopSpeech({ commitInterim: false })
+    gotSpeechResultRef.current = false
     const recognition = new Ctor()
     recognition.continuous = true
     recognition.interimResults = true
     recognition.lang = "en-US"
+    recognition.maxAlternatives = 1
     shouldRestartSpeechRef.current = true
 
+    recognition.onstart = () => {
+      setSpeechListening(true)
+      clearWatchdog()
+      watchdogRef.current = window.setTimeout(() => {
+        if (!gotSpeechResultRef.current && shouldRestartSpeechRef.current) {
+          setError(
+            "Live speech-to-text produced no text. Audio is still recording — after you stop, we’ll try server transcription, or use Upload / paste.",
+          )
+        }
+      }, 8000)
+    }
+
     recognition.onresult = (event) => {
+      gotSpeechResultRef.current = true
+      clearWatchdog()
       let finalChunk = ""
       let interimChunk = ""
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -211,6 +251,7 @@ export function useInterviewRecorder() {
     }
 
     recognition.onend = () => {
+      setSpeechListening(false)
       // Promote sticky interim before Chrome restarts a continuous session.
       commitInterim()
       if (shouldRestartSpeechRef.current) {
@@ -253,6 +294,10 @@ export function useInterviewRecorder() {
     }
 
     try {
+      // Start Web Speech before MediaRecorder grabs the mic — Android Chrome
+      // often yields zero STT results when MediaRecorder already owns capture.
+      startSpeech()
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -279,8 +324,19 @@ export function useInterviewRecorder() {
       setRecording(true)
       setPaused(false)
       startTicker()
-      startSpeech()
+
+      // Nudge recognition again after the recorder starts (some devices drop the first start).
+      if (speechSupported && !recognitionRef.current) {
+        startSpeech()
+      } else if (recognitionRef.current && shouldRestartSpeechRef.current) {
+        try {
+          recognitionRef.current.stop()
+        } catch {
+          // restart via onend
+        }
+      }
     } catch {
+      stopSpeech({ commitInterim: false })
       cleanupStream()
       setError(
         "Could not open the microphone. Check Android permissions for this app.",
@@ -304,11 +360,12 @@ export function useInterviewRecorder() {
   const resume = () => {
     const recorder = mediaRecorderRef.current
     if (!recorder || recorder.state !== "paused") return
+    // Speech first, then resume recorder — same mic-contention mitigation.
+    startSpeech()
     recorder.resume()
     startedAtRef.current = Date.now()
     setPaused(false)
     startTicker()
-    startSpeech()
   }
 
   const stop = async () =>
@@ -363,6 +420,7 @@ export function useInterviewRecorder() {
     interim,
     error,
     speechSupported,
+    speechListening,
     mimeType,
     setTranscript,
     setError,
