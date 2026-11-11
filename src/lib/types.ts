@@ -58,6 +58,21 @@ export type GlossaryTerm = {
   updatedAt: string
 }
 
+/** Workspace-backed interview assets attached to a knowledge pack. */
+export type PackInterviewAssets = {
+  sessionId: string
+  /** Public URL path, e.g. /interviews/<id>/interview.weba */
+  audioPath: string
+  /** Public URL path, e.g. /interviews/<id>/transcript.txt */
+  transcriptPath: string
+  /** Inline transcript text for editors / export without a second fetch. */
+  transcript: string
+  mimeType: string
+  durationMs: number
+  title: string
+  expertName: string
+}
+
 export type KnowledgePack = {
   id: string
   name: string
@@ -68,6 +83,8 @@ export type KnowledgePack = {
   procedures: Procedure[]
   gotchas: Gotcha[]
   terms: GlossaryTerm[]
+  /** Optional linked interview audio + transcript for this pack. */
+  interview?: PackInterviewAssets | null
   createdAt: string
   updatedAt: string
 }
@@ -165,6 +182,7 @@ export function emptyPack(partial?: Partial<KnowledgePack>): KnowledgePack {
     procedures: [],
     gotchas: [],
     terms: [],
+    interview: null,
     createdAt: now,
     updatedAt: now,
     ...partial,

@@ -1,6 +1,7 @@
 import { InstallBanner } from "@/components/install-banner"
 import { PwaRegister } from "@/components/pwa-register"
 import { ThemeProvider } from "@/components/theme-provider"
+import { KnowledgeStoreProvider } from "@/hooks/use-knowledge-store"
 import type { Metadata, Viewport } from "next"
 import { Bricolage_Grotesque, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google"
 import "./globals.css"
@@ -26,7 +27,7 @@ const mono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Knowledge Elicitation Studio — Agent-ready tribal knowledge",
   description:
-    "Capture tribal heuristics, procedures, gotchas, and glossary terms as agent-ready knowledge packs. Record expert interviews on Android and extract structured memory.",
+    "Capture tribal heuristics, procedures, gotchas, and glossary terms as agent-ready knowledge packs. Record expert interviews and extract structured memory.",
   applicationName: "Knowledge Elicitation Studio",
   appleWebApp: {
     capable: true,
@@ -67,9 +68,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col font-[family-name:var(--font-body)]">
         <ThemeProvider>
-          {children}
-          <PwaRegister />
-          <InstallBanner />
+          <KnowledgeStoreProvider>
+            {children}
+            <PwaRegister />
+            <InstallBanner />
+          </KnowledgeStoreProvider>
         </ThemeProvider>
       </body>
     </html>

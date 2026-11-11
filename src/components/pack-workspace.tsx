@@ -14,6 +14,15 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  analyzeTranscript,
+  applyCandidatesToPack,
+} from "@/lib/analyze-transcript"
+import {
+  getInterviewSession,
+  saveInterviewSession,
+} from "@/lib/data-store"
+import type { AnalysisCandidate } from "@/lib/interview-types"
+import {
   emptyGotcha,
   emptyHeuristic,
   emptyProcedure,
@@ -22,9 +31,13 @@ import {
   type EntryKind,
   type KnowledgePack,
 } from "@/lib/types"
-import { ArrowLeft, Mic, Plus } from "lucide-react"
+import { ArrowLeft, Check, Mic, Plus, RotateCcw } from "lucide-react"
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+
+function snapshotPack(pack: KnowledgePack) {
+  return JSON.stringify(pack)
+}
 
 export function PackWorkspace({
   pack,
@@ -33,7 +46,10 @@ export function PackWorkspace({
   pack: KnowledgePack
   onChange: (next: KnowledgePack) => void
 }) {
-  const counts = packCounts(pack)
+  const [draft, setDraft] = useState(pack)
+  const [savedSnapshot, setSavedSnapshot] = useState(() => snapshotPack(pack))
+  const dirty = snapshotPack(draft) !== savedSnapshot
+  const counts = packCounts(draft)
   const [tab, setTab] = useState<EntryKind | "overview">("overview")
   const [selected, setSelected] = useState<Record<EntryKind, string | null>>({
     heuristic: pack.heuristics[0]?.id ?? null,
@@ -41,29 +57,202 @@ export function PackWorkspace({
     gotcha: pack.gotchas[0]?.id ?? null,
     term: pack.terms[0]?.id ?? null,
   })
+
+  useEffect(() => {
+    setDraft(pack)
+    setSavedSnapshot(snapshotPack(pack))
+    setSelected({
+      heuristic: pack.heuristics[0]?.id ?? null,
+      procedure: pack.procedures[0]?.id ?? null,
+      gotcha: pack.gotchas[0]?.id ?? null,
+      term: pack.terms[0]?.id ?? null,
+    })
+  }, [pack.id])
+
   const selectedHeuristic = useMemo(
-    () => pack.heuristics.find((h) => h.id === selected.heuristic) ?? null,
-    [pack.heuristics, selected.heuristic],
+    () => draft.heuristics.find((h) => h.id === selected.heuristic) ?? null,
+    [draft.heuristics, selected.heuristic],
   )
   const selectedProcedure = useMemo(
-    () => pack.procedures.find((p) => p.id === selected.procedure) ?? null,
-    [pack.procedures, selected.procedure],
+    () => draft.procedures.find((p) => p.id === selected.procedure) ?? null,
+    [draft.procedures, selected.procedure],
   )
   const selectedGotcha = useMemo(
-    () => pack.gotchas.find((g) => g.id === selected.gotcha) ?? null,
-    [pack.gotchas, selected.gotcha],
+    () => draft.gotchas.find((g) => g.id === selected.gotcha) ?? null,
+    [draft.gotchas, selected.gotcha],
   )
   const selectedTerm = useMemo(
-    () => pack.terms.find((t) => t.id === selected.term) ?? null,
-    [pack.terms, selected.term],
+    () => draft.terms.find((t) => t.id === selected.term) ?? null,
+    [draft.terms, selected.term],
   )
+
+  const updateDraft = (next: KnowledgePack) => {
+    setSaveNotice(null)
+    setDraft({ ...next, updatedAt: new Date().toISOString() })
+  }
+
+  const [saveNotice, setSaveNotice] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
+
+  const savedPack = useMemo(() => {
+    try {
+      return JSON.parse(savedSnapshot) as KnowledgePack
+    } catch {
+      return pack
+    }
+  }, [savedSnapshot, pack])
+
+  const transcriptDirty =
+    (draft.interview?.transcript ?? "").trim() !==
+    (savedPack.interview?.transcript ?? "").trim()
+
+  const stripInterviewDerived = (current: KnowledgePack): KnowledgePack => {
+    const fromInterview = (entry: { source: string; tags?: string[] }) =>
+      /interview/i.test(entry.source || "") ||
+      /elicited from/i.test(entry.source || "") ||
+      (entry.tags ?? []).some((tag) => /interview/i.test(tag))
+    return {
+      ...current,
+      heuristics: current.heuristics.filter((h) => !fromInterview(h)),
+      procedures: current.procedures.filter((p) => !fromInterview(p)),
+      gotchas: current.gotchas.filter((g) => !fromInterview(g)),
+      terms: current.terms.filter((t) => !fromInterview(t)),
+    }
+  }
+
+  const analyzePackTranscript = async () => {
+    const transcript = (draft.interview?.transcript ?? "").trim()
+    if (transcript.length < 40) {
+      setSaveNotice("Need a longer transcript before analysis.")
+      return
+    }
+    setAnalyzing(true)
+    setSaveNotice("Analyzing transcript…")
+    try {
+      const candidates = analyzeTranscript(transcript).map(
+        (c) =>
+          ({
+            ...c,
+            status: "accepted",
+          }) as AnalysisCandidate,
+      )
+      const cleared = stripInterviewDerived(draft)
+      const next = applyCandidatesToPack(cleared, candidates)
+      const stamped = {
+        ...next,
+        interview: draft.interview
+          ? { ...draft.interview, transcript }
+          : draft.interview,
+        updatedAt: new Date().toISOString(),
+      }
+      updateDraft(stamped)
+
+      const sessionId = stamped.interview?.sessionId
+      if (sessionId) {
+        const existing = await getInterviewSession(sessionId)
+        if (existing) {
+          await saveInterviewSession({
+            ...existing,
+            packId: stamped.id,
+            transcript,
+            candidates,
+            updatedAt: stamped.updatedAt,
+          })
+        }
+      }
+
+      setSaveNotice(
+        candidates.length
+          ? `Analyzed transcript — refreshed ${candidates.length} interview-sourced entries. Confirm save to persist.`
+          : "Analyze finished with no structured candidates. Edit the transcript and try again.",
+      )
+      setTab("overview")
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  const confirmSave = async () => {
+    setSaving(true)
+    setSaveNotice("Saving…")
+    const stamped = { ...draft, updatedAt: new Date().toISOString() }
+    onChange(stamped)
+    setDraft(stamped)
+    setSavedSnapshot(snapshotPack(stamped))
+
+    const interview = stamped.interview
+    if (!interview?.sessionId) {
+      setSaveNotice("Pack saved.")
+      setSaving(false)
+      return
+    }
+
+    try {
+      const existing = await getInterviewSession(interview.sessionId)
+      if (existing) {
+        await saveInterviewSession({
+          ...existing,
+          packId: stamped.id,
+          title: interview.title || existing.title,
+          expertName: interview.expertName || existing.expertName,
+          transcript: interview.transcript,
+          updatedAt: stamped.updatedAt,
+        })
+      }
+
+      const exportRes = await fetch("/api/save-interview-export", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sessionId: interview.sessionId,
+          packId: stamped.id,
+          title: interview.title || stamped.name,
+          expertName: interview.expertName,
+          transcript: interview.transcript || "[empty]",
+          mimeType: interview.mimeType,
+          durationMs: interview.durationMs,
+          candidates: existing?.candidates ?? [],
+        }),
+      })
+      if (!exportRes.ok) {
+        setSaveNotice(
+          "Pack + session saved; workspace transcript.txt sync failed.",
+        )
+        return
+      }
+      setSaveNotice(
+        existing
+          ? "Saved pack, IndexedDB session, and workspace transcript."
+          : "Saved pack and workspace transcript (no IndexedDB session found for that id).",
+      )
+    } catch {
+      setSaveNotice(
+        "Pack saved; could not sync transcript to IndexedDB/workspace.",
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const cancelEdits = () => {
+    const restored = JSON.parse(savedSnapshot) as KnowledgePack
+    setSaveNotice(null)
+    setDraft(restored)
+    setSelected({
+      heuristic: restored.heuristics[0]?.id ?? null,
+      procedure: restored.procedures[0]?.id ?? null,
+      gotcha: restored.gotchas[0]?.id ?? null,
+      term: restored.terms[0]?.id ?? null,
+    })
+  }
 
   const addHeuristic = (prompt?: string) => {
     const entry = emptyHeuristic({
       title: "",
       because: prompt ? `Elicited from: "${prompt}"` : "",
     })
-    onChange({ ...pack, heuristics: [entry, ...pack.heuristics] })
+    updateDraft({ ...draft, heuristics: [entry, ...draft.heuristics] })
     setSelected((s) => ({ ...s, heuristic: entry.id }))
     setTab("heuristic")
   }
@@ -73,7 +262,7 @@ export function PackWorkspace({
       title: "",
       goal: prompt ? `Responding to: "${prompt}"` : "",
     })
-    onChange({ ...pack, procedures: [entry, ...pack.procedures] })
+    updateDraft({ ...draft, procedures: [entry, ...draft.procedures] })
     setSelected((s) => ({ ...s, procedure: entry.id }))
     setTab("procedure")
   }
@@ -83,7 +272,7 @@ export function PackWorkspace({
       title: "",
       symptom: prompt ? `Prompt: ${prompt}` : "",
     })
-    onChange({ ...pack, gotchas: [entry, ...pack.gotchas] })
+    updateDraft({ ...draft, gotchas: [entry, ...draft.gotchas] })
     setSelected((s) => ({ ...s, gotcha: entry.id }))
     setTab("gotcha")
   }
@@ -93,7 +282,7 @@ export function PackWorkspace({
       term: "",
       definition: prompt ? `Elicited from: "${prompt}"` : "",
     })
-    onChange({ ...pack, terms: [entry, ...pack.terms] })
+    updateDraft({ ...draft, terms: [entry, ...draft.terms] })
     setSelected((s) => ({ ...s, term: entry.id }))
     setTab("term")
   }
@@ -118,22 +307,52 @@ export function PackWorkspace({
           </Link>
           <div>
             <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight text-[var(--ink)] sm:text-4xl">
-              {pack.name || "Untitled pack"}
+              {draft.name || "Untitled pack"}
             </h1>
             <p className="mt-1 text-sm text-[var(--ink-muted)]">
-              {pack.domain || "No domain set"} · {counts.total} entries
+              {draft.domain || "No domain set"} · {counts.total} entries
             </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ThemeToggle />
+          {dirty ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={cancelEdits}
+                disabled={saving}
+              >
+                <RotateCcw className="size-4" />
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void confirmSave()}
+                disabled={saving}
+              >
+                <Check className="size-4" />
+                {saving ? "Saving…" : "Confirm save"}
+              </Button>
+            </>
+          ) : null}
+          {saveNotice ? (
+            <p
+              className="max-w-xs text-sm text-[var(--signal)] sm:max-w-sm"
+              role="status"
+              aria-live="polite"
+            >
+              {saveNotice}
+            </p>
+          ) : null}
           <Button asChild variant="outline">
-            <Link href={`/pack/${pack.id}/record`}>
+            <Link href={`/pack/${draft.id}/record`}>
               <Mic className="size-4" />
-              Record interview
+              Record / add interview
             </Link>
           </Button>
-          <ExportPanel pack={pack} />
+          <ExportPanel pack={draft} />
         </div>
       </div>
 
@@ -197,7 +416,16 @@ export function PackWorkspace({
                 <h2 className="mb-4 text-[0.7rem] font-medium uppercase tracking-[0.14em] text-[var(--ink-muted)]">
                   Overview
                 </h2>
-                <PackMetaForm value={pack} onChange={onChange} />
+                <PackMetaForm
+                  value={draft}
+                  onChange={updateDraft}
+                  transcriptDirty={transcriptDirty}
+                  analyzing={analyzing}
+                  onAnalyzeTranscript={() => void analyzePackTranscript()}
+                />
+                {saveNotice ? (
+                  <p className="mt-3 text-sm text-[var(--signal)]">{saveNotice}</p>
+                ) : null}
               </section>
               <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {[
@@ -252,7 +480,7 @@ export function PackWorkspace({
                 onAdd={() => addHeuristic()}
                 list={
                   <EntryList
-                    items={pack.heuristics.map((h) => ({
+                    items={draft.heuristics.map((h) => ({
                       id: h.id,
                       title: h.title,
                       subtitle: h.when || h.then,
@@ -263,8 +491,8 @@ export function PackWorkspace({
                       setSelected((s) => ({ ...s, heuristic: id }))
                     }
                     onDelete={(id) => {
-                      const next = pack.heuristics.filter((h) => h.id !== id)
-                      onChange({ ...pack, heuristics: next })
+                      const next = draft.heuristics.filter((h) => h.id !== id)
+                      updateDraft({ ...draft, heuristics: next })
                       setSelected((s) => ({
                         ...s,
                         heuristic: next[0]?.id ?? null,
@@ -278,9 +506,9 @@ export function PackWorkspace({
                     <HeuristicEditor
                       value={selectedHeuristic}
                       onChange={(entry) =>
-                        onChange({
-                          ...pack,
-                          heuristics: pack.heuristics.map((h) =>
+                        updateDraft({
+                          ...draft,
+                          heuristics: draft.heuristics.map((h) =>
                             h.id === entry.id ? entry : h,
                           ),
                         })
@@ -304,7 +532,7 @@ export function PackWorkspace({
                 onAdd={() => addProcedure()}
                 list={
                   <EntryList
-                    items={pack.procedures.map((p) => ({
+                    items={draft.procedures.map((p) => ({
                       id: p.id,
                       title: p.title,
                       subtitle: p.goal,
@@ -315,8 +543,8 @@ export function PackWorkspace({
                       setSelected((s) => ({ ...s, procedure: id }))
                     }
                     onDelete={(id) => {
-                      const next = pack.procedures.filter((p) => p.id !== id)
-                      onChange({ ...pack, procedures: next })
+                      const next = draft.procedures.filter((p) => p.id !== id)
+                      updateDraft({ ...draft, procedures: next })
                       setSelected((s) => ({
                         ...s,
                         procedure: next[0]?.id ?? null,
@@ -330,9 +558,9 @@ export function PackWorkspace({
                     <ProcedureEditor
                       value={selectedProcedure}
                       onChange={(entry) =>
-                        onChange({
-                          ...pack,
-                          procedures: pack.procedures.map((p) =>
+                        updateDraft({
+                          ...draft,
+                          procedures: draft.procedures.map((p) =>
                             p.id === entry.id ? entry : p,
                           ),
                         })
@@ -356,7 +584,7 @@ export function PackWorkspace({
                 onAdd={() => addGotcha()}
                 list={
                   <EntryList
-                    items={pack.gotchas.map((g) => ({
+                    items={draft.gotchas.map((g) => ({
                       id: g.id,
                       title: g.title,
                       subtitle: g.symptom || g.fix,
@@ -366,8 +594,8 @@ export function PackWorkspace({
                       setSelected((s) => ({ ...s, gotcha: id }))
                     }
                     onDelete={(id) => {
-                      const next = pack.gotchas.filter((g) => g.id !== id)
-                      onChange({ ...pack, gotchas: next })
+                      const next = draft.gotchas.filter((g) => g.id !== id)
+                      updateDraft({ ...draft, gotchas: next })
                       setSelected((s) => ({
                         ...s,
                         gotcha: next[0]?.id ?? null,
@@ -381,9 +609,9 @@ export function PackWorkspace({
                     <GotchaEditor
                       value={selectedGotcha}
                       onChange={(entry) =>
-                        onChange({
-                          ...pack,
-                          gotchas: pack.gotchas.map((g) =>
+                        updateDraft({
+                          ...draft,
+                          gotchas: draft.gotchas.map((g) =>
                             g.id === entry.id ? entry : g,
                           ),
                         })
@@ -407,7 +635,7 @@ export function PackWorkspace({
                 onAdd={() => addTerm()}
                 list={
                   <EntryList
-                    items={pack.terms.map((t) => ({
+                    items={draft.terms.map((t) => ({
                       id: t.id,
                       title: t.term,
                       subtitle: t.definition,
@@ -415,8 +643,8 @@ export function PackWorkspace({
                     selectedId={selected.term}
                     onSelect={(id) => setSelected((s) => ({ ...s, term: id }))}
                     onDelete={(id) => {
-                      const next = pack.terms.filter((t) => t.id !== id)
-                      onChange({ ...pack, terms: next })
+                      const next = draft.terms.filter((t) => t.id !== id)
+                      updateDraft({ ...draft, terms: next })
                       setSelected((s) => ({
                         ...s,
                         term: next[0]?.id ?? null,
@@ -430,9 +658,9 @@ export function PackWorkspace({
                     <TermEditor
                       value={selectedTerm}
                       onChange={(entry) =>
-                        onChange({
-                          ...pack,
-                          terms: pack.terms.map((t) =>
+                        updateDraft({
+                          ...draft,
+                          terms: draft.terms.map((t) =>
                             t.id === entry.id ? entry : t,
                           ),
                         })
@@ -459,6 +687,59 @@ export function PackWorkspace({
           />
         </div>
       </div>
+
+      {dirty || saveNotice ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-[var(--panel)]/95 px-4 py-3 backdrop-blur sm:px-6">
+          <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3">
+            <p
+              className={
+                saveNotice && !dirty
+                  ? "text-sm text-[var(--signal)]"
+                  : "text-sm text-[var(--ink-muted)]"
+              }
+              role="status"
+              aria-live="polite"
+            >
+              {dirty
+                ? saving
+                  ? "Saving…"
+                  : "Unsaved changes in this pack."
+                : saveNotice}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {dirty ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={cancelEdits}
+                    disabled={saving}
+                  >
+                    <RotateCcw className="size-4" />
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => void confirmSave()}
+                    disabled={saving}
+                  >
+                    <Check className="size-4" />
+                    {saving ? "Saving…" : "Confirm save"}
+                  </Button>
+                </>
+              ) : saveNotice ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSaveNotice(null)}
+                >
+                  Dismiss
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -494,3 +775,4 @@ function KindPane({
     </div>
   )
 }
+

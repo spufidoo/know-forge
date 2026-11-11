@@ -6,7 +6,7 @@ import {
   getInterviewSession,
   listInterviewSessions,
   saveInterviewSession,
-} from "@/lib/interview-db"
+} from "@/lib/data-store"
 import type {
   InterviewSessionMeta,
   InterviewSessionRecord,

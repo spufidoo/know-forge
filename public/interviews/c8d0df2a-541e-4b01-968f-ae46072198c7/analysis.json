@@ -1,0 +1,210 @@
+{
+  "sessionId": "c8d0df2a-541e-4b01-968f-ae46072198c7",
+  "packId": "0a1e5cd0-e570-4f81-b66f-aa8cdb65d42d",
+  "title": "CICS interview",
+  "expertName": "IBM DB2 for z/OS DBA (expert)",
+  "mimeType": "audio/webm;codecs=opus",
+  "durationMs": 34715,
+  "transcript": "Okay, you've been woken up, you're analyzing your logs of the various CICS systems that are running on your LPAR. What's the first thing you do? First, I check the health of the region itself. Is it up? Is it taking transactions? Are there any abends in the log? Then I look at whether it's one region or all of them on the LPAR. That splits a local problem from something systemic like a coupling facility or a shared database.",
+  "candidates": [
+    {
+      "id": "b01788b3-44d9-46d2-ace3-162f7f36d0d7",
+      "kind": "procedure",
+      "title": "First, I check the health of the region itself. Is it taking …",
+      "excerpt": "First, I check the health of the region itself. Is it taking transactions? Are there any abends in the log? Then I look at whether it's one region or all of them on the LPAR.",
+      "confidence": "high",
+      "status": "accepted",
+      "payload": {
+        "title": "First, I check the health of the region itself. Is it taking …",
+        "goal": "First, I check the health of the region itself. Is it taking transactions? Are there any abends in the log? Then I look at whether it's one region or all of them on the LPAR.",
+        "whenToUse": "Responding to: \"What's the first thing you do?\"",
+        "whenNotToUse": "",
+        "steps": "First, I check the health of the region itself. Is it taking transactions? Are there any abends in the log? Then I look at whether it's one region or all of them on the LPAR.",
+        "source": "Interview recording"
+      }
+    },
+    {
+      "id": "9cd9407f-1e3e-4ec8-9cc1-5a0006a5f989",
+      "kind": "heuristic",
+      "title": "Then I look at whether it's one region or all of them on the …",
+      "excerpt": "Then I look at whether it's one region or all of them on the LPAR.",
+      "confidence": "high",
+      "status": "accepted",
+      "payload": {
+        "title": "Then I look at whether it's one region or all of them on the …",
+        "when": "When scoping whether a failure is local or widespread",
+        "then": "Then I look at whether it's one region or all of them on the LPAR.",
+        "because": "Elicited from expert interview transcript.",
+        "unless": [],
+        "source": "Interview recording"
+      }
+    },
+    {
+      "id": "65109f86-4750-478e-bfdc-e64dd984cf34",
+      "kind": "heuristic",
+      "title": "That splits a local problem from something systemic like a co…",
+      "excerpt": "That splits a local problem from something systemic like a coupling facility or a shared database.",
+      "confidence": "high",
+      "status": "accepted",
+      "payload": {
+        "title": "That splits a local problem from something systemic like a co…",
+        "when": "When scoping whether a failure is local or widespread",
+        "then": "That splits a local problem from something systemic like a coupling facility or a shared database.",
+        "because": "Elicited from expert interview transcript.",
+        "unless": [],
+        "source": "Interview recording"
+      }
+    },
+    {
+      "id": "ec47b7a7-f9e6-4225-bd53-31f8f5e39a13",
+      "kind": "heuristic",
+      "title": "I look at whether it's one region or all of them on the LPAR.",
+      "excerpt": "I look at whether it's one region or all of them on the LPAR.",
+      "confidence": "medium",
+      "status": "accepted",
+      "payload": {
+        "title": "I look at whether it's one region or all of them on the LPAR.",
+        "when": "During initial triage of the situation the expert described",
+        "then": "I look at whether it's one region or all of them on the LPAR.",
+        "because": "Elicited from expert interview transcript.",
+        "unless": [],
+        "source": "Interview recording"
+      }
+    },
+    {
+      "id": "6b891f7c-857e-4fea-a629-1d8a7000c2a2",
+      "kind": "procedure",
+      "title": "I check the health of the region itself. Is it up? Is it taki…",
+      "excerpt": "Okay, you've been woken up, you're analyzing your logs of the various CICS systems that are running on your LPAR. What's the first thing you do? First, I check the health of the region itself. Is it up? Is it taking transactions? Are there ",
+      "confidence": "medium",
+      "status": "accepted",
+      "payload": {
+        "title": "I check the health of the region itself. Is it up? Is it taki…",
+        "goal": "Reproduce the walkthrough captured in the interview.",
+        "whenToUse": "When facing the same class of situation the expert described.",
+        "whenNotToUse": "",
+        "steps": "I check the health of the region itself. Is it up? Is it taking transactions? Are there any abends in the log\nI look at whether it's one region or all of them on the LPAR. That splits a local problem from something systemic like a coupling facility or a shared database.",
+        "source": "Interview recording"
+      }
+    },
+    {
+      "id": "8701c153-c269-4d3d-b13f-94dd08659079",
+      "kind": "gotcha",
+      "title": "Treating a systemic outage as a local region problem",
+      "excerpt": "That splits a local problem from something systemic like a coupling facility or a shared database.",
+      "confidence": "high",
+      "status": "accepted",
+      "payload": {
+        "title": "Treating a systemic outage as a local region problem",
+        "symptom": "Symptoms look like a single-region issue while multiple regions on the LPAR are affected.",
+        "cause": "Triage stopped at one region and missed shared infrastructure (coupling facility, shared database).",
+        "fix": "Compare one region versus all regions on the LPAR before deep-diving a single region.",
+        "prevention": "Always check blast radius across regions on the LPAR after basic region health.",
+        "source": "Interview recording"
+      }
+    },
+    {
+      "id": "75d19005-ce8c-4cf4-9335-0ad08a18b5fd",
+      "kind": "term",
+      "title": "CICS",
+      "excerpt": "Okay, you've been woken up, you're analyzing your logs of the various CICS systems that are running on your LPAR.",
+      "confidence": "medium",
+      "status": "accepted",
+      "payload": {
+        "term": "CICS",
+        "definition": "Transaction server regions running on z/OS that the expert is triaging. Context: Okay, you've been woken up, you're analyzing your logs of the various CICS systems that are running on your LPAR.",
+        "aliases": [
+          "Customer Information Control System"
+        ],
+        "related": [],
+        "source": "Interview recording"
+      }
+    },
+    {
+      "id": "1206ebbb-df61-47da-97ee-43b370f4201f",
+      "kind": "term",
+      "title": "LPAR",
+      "excerpt": "Okay, you've been woken up, you're analyzing your logs of the various CICS systems that are running on your LPAR.",
+      "confidence": "medium",
+      "status": "accepted",
+      "payload": {
+        "term": "LPAR",
+        "definition": "Logical partition on IBM Z; comparing one region versus all regions on the LPAR separates local from systemic issues. Context: Okay, you've been woken up, you're analyzing your logs of the various CICS systems that are running on your LPAR.",
+        "aliases": [
+          "L-PAR",
+          "logical partition"
+        ],
+        "related": [],
+        "source": "Interview recording"
+      }
+    },
+    {
+      "id": "39519f52-7933-4c23-b5ce-4032bf0fa6f1",
+      "kind": "term",
+      "title": "CICS region",
+      "excerpt": "First, I check the health of the region itself.",
+      "confidence": "medium",
+      "status": "accepted",
+      "payload": {
+        "term": "CICS region",
+        "definition": "A CICS address space; first health checks ask whether it is up, taking transactions, and free of abends. Context: First, I check the health of the region itself.",
+        "aliases": [
+          "region"
+        ],
+        "related": [],
+        "source": "Interview recording"
+      }
+    },
+    {
+      "id": "4175db83-4aaa-43e3-8175-c3849fe911a5",
+      "kind": "term",
+      "title": "Abend",
+      "excerpt": "Are there any abends in the log?",
+      "confidence": "medium",
+      "status": "accepted",
+      "payload": {
+        "term": "Abend",
+        "definition": "Abnormal end messages in the CICS log checked during region health. Context: Are there any abends in the log?",
+        "aliases": [
+          "abends",
+          "abnormal end"
+        ],
+        "related": [],
+        "source": "Interview recording"
+      }
+    },
+    {
+      "id": "08f52aaa-0074-41c8-9f62-752df8cafb6a",
+      "kind": "term",
+      "title": "Coupling facility",
+      "excerpt": "That splits a local problem from something systemic like a coupling facility or a shared database.",
+      "confidence": "medium",
+      "status": "accepted",
+      "payload": {
+        "term": "Coupling facility",
+        "definition": "Shared sysplex infrastructure; a candidate cause when every region on the LPAR is affected. Context: That splits a local problem from something systemic like a coupling facility or a shared database.",
+        "aliases": [
+          "CF"
+        ],
+        "related": [],
+        "source": "Interview recording"
+      }
+    },
+    {
+      "id": "0e9b3b01-185d-4d9d-8e2b-6573c680d348",
+      "kind": "term",
+      "title": "Shared database",
+      "excerpt": "That splits a local problem from something systemic like a coupling facility or a shared database.",
+      "confidence": "medium",
+      "status": "accepted",
+      "payload": {
+        "term": "Shared database",
+        "definition": "Database shared across regions; another systemic suspect when all regions on the LPAR fail together. Context: That splits a local problem from something systemic like a coupling facility or a shared database.",
+        "aliases": [],
+        "related": [],
+        "source": "Interview recording"
+      }
+    }
+  ],
+  "exportedAt": "2026-11-11T13:54:04.563Z"
+}

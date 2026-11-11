@@ -25,7 +25,10 @@ export async function transcribeAudioFile(file: Blob, filename = "interview.webm
     const parts = [json.error, json.reason, json.detail].filter(
       (part): part is string => Boolean(part && part.trim()),
     )
-    throw new Error(parts[0] || `Transcription failed (${res.status})`)
+    throw new Error(
+      parts[0] ||
+        `Local Whisper transcription failed (${res.status}).`,
+    )
   }
   if (!json.text?.trim()) {
     throw new Error("Transcription returned no text.")

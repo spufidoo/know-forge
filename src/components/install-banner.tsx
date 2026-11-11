@@ -39,7 +39,7 @@ export function InstallBanner() {
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="font-[family-name:var(--font-display)] text-lg text-[var(--mist)]">
-            Install KE Studio on Android
+            Install KE Studio
           </p>
           <p className="mt-1 text-sm leading-relaxed text-[var(--mist)]/70">
             Add the interview recorder to your home screen for one-tap

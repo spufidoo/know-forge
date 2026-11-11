@@ -1,0 +1,105 @@
+{
+  "seedId": "c8d0df2a-541e-4b01-968f-ae46072198c7-analyzed-v3-assets",
+  "preferredPackId": "f8ee2413-5146-4565-8c89-2dd0ea75bcc7",
+  "sessionId": "c8d0df2a-541e-4b01-968f-ae46072198c7",
+  "audioPath": "/interviews/c8d0df2a-541e-4b01-968f-ae46072198c7/interview.weba",
+  "mimeType": "audio/webm;codecs=opus",
+  "durationMs": 35880,
+  "title": "Db2 z/OS access-path elicitation",
+  "expertName": "IBM DB2 for z/OS DBA (expert)",
+  "persona": {
+    "role": "IBM DB2 for z/OS database administrator with extensive experience",
+    "packName": "Db2 for z/OS DBA tribal knowledge",
+    "domain": "IBM Db2 for z/OS performance and access paths",
+    "purpose": "Give agents the judgment veteran Db2 for z/OS DBAs use when triaging slow queries — start from the access path, not only the SQL text.",
+    "audience": "IBM DB2 for z/OS database administrators with extensive experience, and agentic systems assisting them"
+  },
+  "transcript": "Zoom. Standing by. What do experts notice first that Juniors miss? Access path. A Juniors sees a slow query and looks at the SQL text. An expert looks at the plan, whether it's index only, whether it's doing a table space scan on a billion row table, whether the filter factor is off because statistics are stale. Half the performance problems I inherited were bad statistics or missing index that nobody noticed because the query worked.",
+  "qa": [
+    {
+      "promptId": "h1",
+      "kind": "heuristic",
+      "question": "What do experts notice first that juniors miss?",
+      "answer": "Access path. A junior sees a slow query and looks at the SQL text. An expert looks at the plan — whether it's index-only, whether it's doing a table space scan on a billion-row table, whether the filter factor is off because statistics are stale. Half the performance problems I inherited were bad statistics or a missing index that nobody noticed because the query worked."
+    }
+  ],
+  "candidates": [
+    {
+      "id": "cand-h-access-path",
+      "kind": "heuristic",
+      "title": "Look at the access path before the SQL text",
+      "excerpt": "A junior sees a slow query and looks at the SQL text. An expert looks at the plan, whether it's index only, whether it's doing a table space scan on a billion row table, whether the filter factor is off because statistics are stale.",
+      "confidence": "high",
+      "status": "accepted",
+      "payload": {
+        "title": "Look at the access path before the SQL text",
+        "when": "When a query is slow or a performance complaint lands",
+        "then": "Inspect the access path / plan first: index-only vs table space scan, filter factor, and whether statistics are stale — do not stop at reading the SQL text.",
+        "because": "Elicited from: \"What do experts notice first that juniors miss?\" Experts triage from the plan; juniors fixate on SQL text. Half of inherited performance problems were bad statistics or a missing index that went unnoticed because the query still returned correct results.",
+        "unless": [],
+        "source": "Interview recording c8d0df2a-541e-4b01-968f-ae46072198c7"
+      }
+    },
+    {
+      "id": "cand-g-silent-bad-plan",
+      "kind": "gotcha",
+      "title": "Correct results can hide a terrible plan",
+      "excerpt": "Half the performance problems I inherited were bad statistics or missing index that nobody noticed because the query worked.",
+      "confidence": "high",
+      "status": "accepted",
+      "payload": {
+        "title": "Correct results can hide a terrible plan",
+        "symptom": "Query returns correct rows but is painfully slow; nobody flagged it because it \"worked.\"",
+        "cause": "Stale statistics (off filter factor) or a missing index driving a table space scan / poor access path.",
+        "fix": "Examine the plan; refresh RUNSTATS / statistics; add or adjust the missing index when the access path confirms it.",
+        "prevention": "Make access-path review part of slow-query triage even when results look right.",
+        "source": "Interview recording c8d0df2a-541e-4b01-968f-ae46072198c7"
+      }
+    },
+    {
+      "id": "cand-t-access-path",
+      "kind": "term",
+      "title": "Access path",
+      "excerpt": "An expert looks at the plan, whether it's index only, whether it's doing a table space scan",
+      "confidence": "high",
+      "status": "accepted",
+      "payload": {
+        "term": "Access path",
+        "definition": "The Db2 plan chosen for a statement — what experts inspect first on a slow query (index-only, table space scan, filter factor), rather than only the SQL text.",
+        "aliases": ["plan", "explain plan"],
+        "related": ["filter factor", "table space scan", "index-only"],
+        "source": "Interview recording c8d0df2a-541e-4b01-968f-ae46072198c7"
+      }
+    },
+    {
+      "id": "cand-t-filter-factor",
+      "kind": "term",
+      "title": "Filter factor",
+      "excerpt": "whether the filter factor is off because statistics are stale",
+      "confidence": "medium",
+      "status": "accepted",
+      "payload": {
+        "term": "Filter factor",
+        "definition": "Selectivity estimate used in access-path choice; when statistics are stale the filter factor can be wrong and drive a bad plan.",
+        "aliases": [],
+        "related": ["statistics", "access path", "RUNSTATS"],
+        "source": "Interview recording c8d0df2a-541e-4b01-968f-ae46072198c7"
+      }
+    },
+    {
+      "id": "cand-t-tablespace-scan",
+      "kind": "term",
+      "title": "Table space scan",
+      "excerpt": "whether it's doing a table space scan on a billion row table",
+      "confidence": "medium",
+      "status": "accepted",
+      "payload": {
+        "term": "Table space scan",
+        "definition": "Access path that reads the table space rather than qualifying via an index; especially costly on very large (e.g. billion-row) tables.",
+        "aliases": ["tablespace scan", "TS scan"],
+        "related": ["access path", "index-only"],
+        "source": "Interview recording c8d0df2a-541e-4b01-968f-ae46072198c7"
+      }
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+declare module "better-sqlite3"
+declare module "pg"
+declare module "mysql2/promise"
+declare module "mssql"
+declare module "ibm_db"
+declare module "server-only"

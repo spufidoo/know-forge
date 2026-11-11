@@ -1,8 +1,22 @@
 import { requireIdentity } from "../../../../cursor/identity"
+import {
+  isLocalWhisperAvailable,
+  transcribeWithLocalWhisper,
+} from "@/lib/local-whisper"
 
 const MAX_BYTES = 24 * 1024 * 1024
 const ALLOWED_PREFIXES = ["audio/", "video/"]
-const ALLOWED_EXTS = [".webm", ".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".mpeg", ".mpga"]
+const ALLOWED_EXTS = [
+  ".webm",
+  ".weba",
+  ".mp3",
+  ".mp4",
+  ".m4a",
+  ".wav",
+  ".ogg",
+  ".mpeg",
+  ".mpga",
+]
 
 function isAllowedFile(file: File) {
   const type = (file.type || "").toLowerCase()
@@ -26,6 +40,8 @@ function whisperFilename(file: File): string {
     ext = "mp3"
   } else if (mime.includes("wav")) {
     ext = "wav"
+  } else if (lowerName.endsWith(".weba")) {
+    ext = "weba"
   } else if (mime.includes("webm")) {
     ext = "webm"
   } else {
@@ -33,9 +49,7 @@ function whisperFilename(file: File): string {
     if (fromName) return original || `interview${fromName}`
   }
 
-  const base =
-    original.replace(/\.[^.]+$/, "").trim() ||
-    "interview"
+  const base = original.replace(/\.[^.]+$/, "").trim() || "interview"
   return `${base}.${ext}`
 }
 
@@ -43,13 +57,14 @@ export async function POST(request: Request) {
   const identity = await requireIdentity(request)
   if (identity instanceof Response) return identity
 
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
+  const availability = await isLocalWhisperAvailable()
+  if (!availability.available) {
     return Response.json(
       {
         error:
-          "Server transcription is not configured. Set OPENAI_API_KEY, or paste a transcript manually.",
-        code: "missing_key",
+          availability.detail ||
+          "Local Whisper is not available. Install openai-whisper for Python, then retry.",
+        code: "missing_local_whisper",
       },
       { status: 503 },
     )
@@ -79,62 +94,47 @@ export async function POST(request: Request) {
     return Response.json(
       {
         error:
-          "Unsupported file type. Use webm, mp3, m4a, wav, ogg, or mp4 audio.",
+          "Unsupported file type. Use webm, weba, mp3, m4a, wav, ogg, or mp4 audio.",
       },
       { status: 400 },
     )
   }
 
-  const body = new FormData()
-  body.append("file", file, whisperFilename(file))
-  body.append("model", "whisper-1")
-  body.append("response_format", "json")
-
-  const upstream = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body,
-  })
-
-  if (!upstream.ok) {
-    const detail = await upstream.text().catch(() => "")
+  try {
+    const bytes = Buffer.from(await file.arrayBuffer())
+    const text = await transcribeWithLocalWhisper({
+      bytes,
+      filename: whisperFilename(file),
+      mimeType: file.type,
+    })
+    return Response.json(
+      { text, engine: "local-whisper" },
+      { headers: { "cache-control": "private, no-store" } },
+    )
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "Local Whisper failed."
     return Response.json(
       {
-        error: detail
-          ? `Transcription request failed: ${detail.slice(0, 300)}`
-          : "Transcription request failed.",
-        detail: detail.slice(0, 500),
+        error: detail,
+        code: "local_whisper_failed",
       },
       { status: 502 },
     )
   }
-
-  const json = (await upstream.json()) as { text?: string }
-  const text = (json.text ?? "").trim()
-  if (!text) {
-    return Response.json(
-      {
-        error:
-          "Transcription returned no text. The audio may be silent, unsupported, or mislabeled.",
-      },
-      { status: 502 },
-    )
-  }
-
-  return Response.json(
-    { text },
-    { headers: { "cache-control": "private, no-store" } },
-  )
 }
 
 export async function GET(request: Request) {
   const identity = await requireIdentity(request)
   if (identity instanceof Response) return identity
 
+  const availability = await isLocalWhisperAvailable()
   return Response.json(
     {
-      configured: Boolean(process.env.OPENAI_API_KEY),
+      configured: availability.available,
+      engine: "local-whisper",
+      model: process.env.WHISPER_MODEL || "base",
       maxBytes: MAX_BYTES,
+      detail: availability.detail,
     },
     { headers: { "cache-control": "private, no-store" } },
   )

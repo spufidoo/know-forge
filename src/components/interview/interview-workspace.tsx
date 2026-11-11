@@ -13,6 +13,7 @@ import {
   buildAnalysisBrief,
 } from "@/lib/analyze-transcript"
 import { downloadText, slugify } from "@/lib/export"
+import { importInterviewSeed } from "@/lib/import-interview-seed"
 import { formatDuration } from "@/lib/interview-db"
 import {
   emptyInterviewSession,
@@ -27,6 +28,7 @@ import {
   Mic,
   Pause,
   Play,
+  Plus,
   Sparkles,
   Square,
   Trash2,
@@ -69,7 +71,9 @@ export function InterviewWorkspace({
   pack: KnowledgePack
   onPackChange: (next: KnowledgePack) => void
 }) {
-  const { sessions, ready, save, remove, load } = useInterviewSessions(pack.id)
+  const { sessions, ready, save, remove, load, refresh } = useInterviewSessions(
+    pack.id,
+  )
   const recorder = useInterviewRecorder()
   const [expertName, setExpertName] = useState("")
   const [title, setTitle] = useState("Expert interview")
@@ -77,13 +81,21 @@ export function InterviewWorkspace({
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [transcribing, setTranscribing] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [analysisCandidates, setAnalysisCandidates] = useState<
+    AnalysisCandidate[]
+  >([])
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const activeSession = useMemo(
     () => sessions.find((s) => s.id === activeId) ?? null,
     [sessions, activeId],
   )
+
+  const reviewCandidates = analysisCandidates.length
+    ? analysisCandidates
+    : (activeSession?.candidates ?? [])
 
   const ensureTranscriptFromAudio = async (
     blob: Blob | null | undefined,
@@ -110,6 +122,46 @@ export function InterviewWorkspace({
     }
   }, [audioUrl])
 
+  // One-shot: hydrate this pack from the offline Whisper seed when present.
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const result = await importInterviewSeed({ packIdHint: pack.id })
+        if (cancelled) return
+        if (!result.alreadyImported) {
+          onPackChange(result.pack)
+          setNotice("Imported offline Whisper transcript into this interview.")
+        }
+        await refresh()
+        const full = await load(result.sessionId)
+        if (!full || cancelled) return
+        // Re-bind seed session to the pack currently open so Analyze UI can find it.
+        const bound =
+          full.packId === pack.id
+            ? full
+            : await save({ ...full, packId: pack.id })
+        if (cancelled) return
+        setActiveId(bound.id)
+        setTitle(bound.title)
+        setExpertName(bound.expertName)
+        recorder.setTranscript(bound.transcript)
+        setAnalysisCandidates(bound.candidates ?? [])
+        setAudioUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev)
+          return bound.audioBlob ? URL.createObjectURL(bound.audioBlob) : null
+        })
+      } catch {
+        // Seed is optional; ignore if absent.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // Intentionally once per pack mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pack.id])
+
   const openSession = async (id: string) => {
     const full = await load(id)
     if (!full) return
@@ -117,6 +169,7 @@ export function InterviewWorkspace({
     setTitle(full.title)
     setExpertName(full.expertName)
     recorder.setTranscript(full.transcript)
+    setAnalysisCandidates(full.candidates ?? [])
     if (audioUrl) URL.revokeObjectURL(audioUrl)
     if (full.audioBlob) {
       setAudioUrl(URL.createObjectURL(full.audioBlob))
@@ -125,14 +178,26 @@ export function InterviewWorkspace({
     }
   }
 
-  const startFresh = () => {
+  /** Start a new interview session that still belongs to this pack (not a new pack). */
+  const startAdditionalInterview = () => {
+    const nextNumber = sessions.length + 1
     setActiveId(null)
-    setTitle("Expert interview")
+    setTitle(
+      sessions.length === 0
+        ? "Expert interview"
+        : `Interview ${nextNumber} — ${pack.name || "follow-up"}`,
+    )
     setExpertName("")
     recorder.setTranscript("")
+    setAnalysisCandidates([])
     if (audioUrl) URL.revokeObjectURL(audioUrl)
     setAudioUrl(null)
-    setNotice(null)
+    setNotice(
+      sessions.length === 0
+        ? `Ready to record the first interview for ${pack.name || "this pack"}.`
+        : `New blank session for ${pack.name || "this pack"}. Stop & save to add it under Saved interviews — it will not create a new pack.`,
+    )
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   const persistRecording = async () => {
@@ -185,6 +250,7 @@ export function InterviewWorkspace({
 
       const saved = await save(next)
       setActiveId(saved.id)
+      setAnalysisCandidates(saved.candidates ?? [])
       if (saved.audioBlob) {
         if (audioUrl) URL.revokeObjectURL(audioUrl)
         setAudioUrl(URL.createObjectURL(saved.audioBlob))
@@ -207,52 +273,77 @@ export function InterviewWorkspace({
   }
 
   const runAnalysis = async () => {
-    let transcript = recorder.getTranscript()
-    if (transcript.length < 40) {
-      const existing = activeId ? await load(activeId) : null
-      if (existing?.audioBlob) {
-        try {
-          transcript = await ensureTranscriptFromAudio(
-            existing.audioBlob,
-            transcript,
-            interviewFilename(existing.mimeType),
-          )
-        } catch (err) {
-          setNotice(
-            err instanceof Error
-              ? err.message
-              : "Need a longer transcript before analysis.",
-          )
-          return
+    setAnalyzing(true)
+    setNotice("Analyzing transcript…")
+    try {
+      let transcript = recorder.getTranscript().trim()
+      if (!transcript) {
+        transcript = recorder.transcript.trim()
+      }
+      if (transcript.length < 40) {
+        const existing = activeId ? await load(activeId) : null
+        if (existing?.audioBlob) {
+          try {
+            setNotice("Transcript short — running local Whisper on audio…")
+            transcript = await ensureTranscriptFromAudio(
+              existing.audioBlob,
+              transcript,
+              interviewFilename(existing.mimeType),
+            )
+          } catch (err) {
+            setNotice(
+              err instanceof Error
+                ? err.message
+                : "Need a longer transcript before analysis.",
+            )
+            return
+          }
         }
       }
+      if (transcript.length < 40) {
+        setNotice("Need a longer transcript before analysis.")
+        return
+      }
+      if (transcript !== recorder.transcript) {
+        recorder.setTranscript(transcript)
+      }
+
+      // Local heuristic extraction (no LLM / OpenAI).
+      const candidates = analyzeTranscript(transcript)
+      setAnalysisCandidates(candidates)
+
+      const existing = activeId ? await load(activeId) : null
+      const next: InterviewSessionRecord = {
+        ...(existing ??
+          emptyInterviewSession(pack.id, {
+            title: title || "Expert interview",
+            expertName,
+          })),
+        packId: pack.id,
+        title: title || "Expert interview",
+        expertName,
+        transcript,
+        candidates,
+        status: "analyzed",
+        hasAudio: Boolean(existing?.audioBlob) || Boolean(existing?.hasAudio),
+        audioBlob: existing?.audioBlob,
+      }
+      const saved = await save(next)
+      setActiveId(saved.id)
+      setNotice(
+        candidates.length
+          ? `Found ${candidates.length} candidate knowledge entries.`
+          : "Analyze finished, but no structured candidates were extracted. Try editing the transcript or adding clearer Q&A turns.",
+      )
+    } catch (err) {
+      setNotice(
+        err instanceof Error
+          ? `Analyze failed: ${err.message}`
+          : "Analyze failed unexpectedly.",
+      )
+    } finally {
+      setAnalyzing(false)
     }
-    if (transcript.length < 40) {
-      setNotice("Need a longer transcript before analysis.")
-      return
-    }
-    if (transcript !== recorder.transcript) {
-      recorder.setTranscript(transcript)
-    }
-    const candidates = analyzeTranscript(transcript)
-    const existing = activeId ? await load(activeId) : null
-    const next: InterviewSessionRecord = {
-      ...(existing ??
-        emptyInterviewSession(pack.id, {
-          title: title || "Expert interview",
-          expertName,
-        })),
-      title: title || "Expert interview",
-      expertName,
-      transcript,
-      candidates,
-      status: "analyzed",
-      hasAudio: Boolean(existing?.audioBlob) || Boolean(existing?.hasAudio),
-      audioBlob: existing?.audioBlob,
-    }
-    const saved = await save(next)
-    setActiveId(saved.id)
-    setNotice(`Found ${candidates.length} candidate knowledge entries.`)
   }
 
   const onUploadAudio = async (file: File | null) => {
@@ -300,6 +391,7 @@ export function InterviewWorkspace({
       const saved = await save(next)
       setActiveId(saved.id)
       setTitle(saved.title)
+      setAnalysisCandidates(saved.candidates ?? [])
       if (audioUrl) URL.revokeObjectURL(audioUrl)
       setAudioUrl(URL.createObjectURL(file))
       setNotice(
@@ -318,21 +410,26 @@ export function InterviewWorkspace({
   }
 
   const updateCandidates = async (candidates: AnalysisCandidate[]) => {
+    setAnalysisCandidates(candidates)
     if (!activeId) return
     const existing = await load(activeId)
     if (!existing) return
-    await save({ ...existing, candidates, status: "analyzed" })
+    await save({
+      ...existing,
+      packId: pack.id,
+      candidates,
+      status: "analyzed",
+    })
   }
 
   const applyAccepted = async () => {
-    if (!activeSession) return
-    const accepted = activeSession.candidates.filter((c) => c.status === "accepted")
+    const accepted = reviewCandidates.filter((c) => c.status === "accepted")
     if (!accepted.length) {
       setNotice("Accept at least one candidate first.")
       return
     }
     onPackChange(applyCandidatesToPack(pack, accepted))
-    const remaining = activeSession.candidates.map((c) =>
+    const remaining = reviewCandidates.map((c) =>
       c.status === "accepted" ? { ...c, status: "rejected" as const } : c,
     )
     await updateCandidates(remaining)
@@ -344,7 +441,7 @@ export function InterviewWorkspace({
       packName: pack.name,
       expertName,
       transcript: recorder.getTranscript() || recorder.transcript,
-      candidates: activeSession?.candidates ?? [],
+      candidates: reviewCandidates,
     })
     downloadText(
       `${slugify(pack.name || "pack")}-interview-brief.md`,
@@ -374,9 +471,12 @@ export function InterviewWorkspace({
             Record an expert
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--ink-muted)]">
-            Capture the conversation on your phone, auto-transcribe where
-            supported, then extract tribal knowledge into{" "}
-            {pack.name || "this pack"}. Get consent before recording.
+            Capture conversations for{" "}
+            <span className="text-[var(--ink)]">{pack.name || "this pack"}</span>
+            . Each recording becomes another interview session on this pack
+            (listed under Saved interviews) — not a new pack. Use{" "}
+            <span className="text-[var(--ink)]">Add another interview</span> when
+            you need a further session. Get consent before recording.
           </p>
         </div>
       </div>
@@ -481,9 +581,11 @@ export function InterviewWorkspace({
               size="lg"
               variant="outline"
               className={darkPanelOutlineBtn}
-              onClick={startFresh}
+              disabled={recorder.recording}
+              onClick={startAdditionalInterview}
             >
-              New session
+              <Plus className="size-4" />
+              Add another interview
             </Button>
             <input
               ref={fileInputRef}
@@ -512,11 +614,11 @@ export function InterviewWorkspace({
             <Button
               type="button"
               variant="outline"
-              disabled={saving || transcribing}
+              disabled={saving || transcribing || analyzing}
               onClick={() => void runAnalysis()}
             >
               <Sparkles className="size-4" />
-              Analyze
+              {analyzing ? "Analyzing…" : "Analyze"}
             </Button>
             <Button type="button" variant="outline" onClick={exportBrief}>
               <Download className="size-4" />
@@ -524,6 +626,9 @@ export function InterviewWorkspace({
             </Button>
           </div>
         </div>
+        {notice ? (
+          <p className="text-sm text-[var(--signal)]">{notice}</p>
+        ) : null}
         <Textarea
           value={recorder.transcript}
           onChange={(e) => recorder.setTranscript(e.target.value)}
@@ -540,10 +645,10 @@ export function InterviewWorkspace({
         ) : null}
       </section>
 
-      {activeSession?.candidates?.length ? (
+      {reviewCandidates.length ? (
         <div className="mt-6">
           <AnalysisReview
-            candidates={activeSession.candidates}
+            candidates={reviewCandidates}
             onChange={(candidates) => void updateCandidates(candidates)}
             onApplyAccepted={() => void applyAccepted()}
           />
@@ -551,14 +656,33 @@ export function InterviewWorkspace({
       ) : null}
 
       <section className="mt-8 space-y-3">
-        <h2 className="font-[family-name:var(--font-display)] text-xl text-[var(--ink)]">
-          Saved interviews
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-[family-name:var(--font-display)] text-xl text-[var(--ink)]">
+              Saved interviews
+            </h2>
+            <p className="mt-1 text-sm text-[var(--ink-muted)]">
+              All sessions for this pack ({sessions.length}). Open one to edit,
+              or add another — they stay on{" "}
+              {pack.name || "this pack"}.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={recorder.recording || saving}
+            onClick={startAdditionalInterview}
+          >
+            <Plus className="size-4" />
+            Add another interview
+          </Button>
+        </div>
         {!ready ? (
           <p className="text-sm text-[var(--ink-muted)]">Loading sessions…</p>
         ) : sessions.length === 0 ? (
           <p className="text-sm text-[var(--ink-muted)]">
-            No recordings yet on this device.
+            No recordings yet for this pack. Start recording or upload audio
+            above.
           </p>
         ) : (
           <ul className="space-y-2">

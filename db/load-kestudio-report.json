@@ -1,0 +1,28 @@
+{
+  "packs": [
+    {
+      "name": "CICS interview",
+      "packId": "0a1e5cd0-e570-4f81-b66f-aa8cdb65d42d",
+      "sessionId": "c8d0df2a-541e-4b01-968f-ae46072198c7",
+      "source": "public/interviews/.../analysis.json",
+      "candidates": 12
+    },
+    {
+      "name": "Db2 for z/OS DBA tribal knowledge",
+      "packId": "f8ee2413-5146-4565-8c89-2dd0ea75bcc7",
+      "sessionId": "3ef1a385-71d2-5c50-9fc9-bce7efcfef54",
+      "source": "public/seed/interview-seed.json",
+      "candidates": 5
+    }
+  ],
+  "mappingIssues": [
+    "Seed sessionId c8d0df2a-541e-4b01-968f-ae46072198c7 collides with CICS analysis session; Db2 pack uses synthetic session 3ef1a385-71d2-5c50-9fc9-bce7efcfef54",
+    "Candidate id \"cand-h-access-path\" is not a UUID — stored as afde2d87-e574-57fb-8faf-89d4d34e5918",
+    "Candidate id \"cand-g-silent-bad-plan\" is not a UUID — stored as 6a7a9952-529f-59e9-9932-29595c458c3a",
+    "Candidate id \"cand-t-access-path\" is not a UUID — stored as 469011d3-8f89-5432-b78c-a576961cd6e8",
+    "Candidate id \"cand-t-filter-factor\" is not a UUID — stored as cb08eeea-7bf9-5fb6-881f-731b78800aa8",
+    "Candidate id \"cand-t-tablespace-scan\" is not a UUID — stored as 3fd609b1-cdc3-5917-8464-af17b3333733",
+    "public/interviews/65a6224d-9d58-4b27-a677-8e8f77ac8011 has interview.wav only — skipped (no transcript/analysis/pack metadata on disk)",
+    "Browser localStorage/IndexedDB not readable from this loader — only workspace files were imported"
+  ]
+}
