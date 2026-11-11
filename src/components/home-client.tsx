@@ -1,6 +1,7 @@
 "use client"
 
 import { EmptyState } from "@/components/empty-state"
+import { PackTransferPanel } from "@/components/pack-transfer-panel"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { useKnowledgeStore } from "@/hooks/use-knowledge-store"
@@ -11,7 +12,8 @@ import { useRouter } from "next/navigation"
 
 export function HomeClient() {
   const router = useRouter()
-  const { packs, ready, savePack, deletePack, addSample } = useKnowledgeStore()
+  const { packs, ready, savePack, deletePack, addSample, importPack } =
+    useKnowledgeStore()
 
   const createPack = () => {
     const pack = emptyPack({
@@ -55,7 +57,14 @@ export function HomeClient() {
             Knowledge Elicitation Studio
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <PackTransferPanel
+            compact
+            onImportedPack={(pack) => {
+              const saved = importPack(pack)
+              router.push(`/pack/${saved.id}`)
+            }}
+          />
           <ThemeToggle />
           <Button onClick={createPack}>
             <Plus className="size-4" />
