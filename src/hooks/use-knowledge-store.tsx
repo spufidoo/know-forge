@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react"
@@ -45,81 +46,87 @@ function persistPacks(packs: KnowledgePack[]): Promise<SaveStoreResult> {
 }
 
 export function KnowledgeStoreProvider({ children }: { children: ReactNode }) {
-  const backend = getActiveStorageBackend()
-  const sync = backend.supportsSyncPacks
-
-  // Sync backends (browser-local / localStorage): load immediately so a deferred
-  // write cannot race and wipe storage. Async backends hydrate in useEffect.
-  const [packs, setPacks] = useState<KnowledgePack[]>(() =>
-    typeof window === "undefined" || !sync ? [] : loadStore().packs,
-  )
-  const [ready, setReady] = useState(
-    () => typeof window !== "undefined" && sync,
-  )
+  // Identical initial state on server and client — hydrate from storage after mount
+  // so SSR HTML matches the first client render (avoids hydration mismatch).
+  const [packs, setPacks] = useState<KnowledgePack[]>([])
+  const [ready, setReady] = useState(false)
   const [lastPersistError, setLastPersistError] = useState<string | null>(null)
+  const hydratedRef = useRef(false)
 
   useEffect(() => {
-    if (sync) return
     let cancelled = false
-    void loadStoreAsync().then((store) => {
+    const sync = getActiveStorageBackend().supportsSyncPacks
+
+    void (async () => {
+      const store = sync ? loadStore() : await loadStoreAsync()
       if (cancelled) return
       setPacks(store.packs)
+      hydratedRef.current = true
       setReady(true)
-    })
+    })()
+
     return () => {
       cancelled = true
     }
-  }, [sync])
-
-  const savePack = useCallback((pack: KnowledgePack) => {
-    const stamped = { ...pack, updatedAt: new Date().toISOString() }
-    setPacks((prev) => {
-      const next = upsertPack(prev, stamped)
-      void persistPacks(next).then((result) => {
-        setLastPersistError(result.ok ? null : result.error)
-      })
-      return next
-    })
-    return stamped
   }, [])
 
-  const deletePack = useCallback((id: string) => {
-    setPacks((prev) => {
-      const next = removePack(prev, id)
-      void persistPacks(next).then((result) => {
-        setLastPersistError(result.ok ? null : result.error)
-      })
-      return next
+  const persistIfHydrated = useCallback((next: KnowledgePack[]) => {
+    if (!hydratedRef.current) return
+    void persistPacks(next).then((result) => {
+      setLastPersistError(result.ok ? null : result.error)
     })
   }, [])
+
+  const savePack = useCallback(
+    (pack: KnowledgePack) => {
+      const stamped = { ...pack, updatedAt: new Date().toISOString() }
+      setPacks((prev) => {
+        const next = upsertPack(prev, stamped)
+        persistIfHydrated(next)
+        return next
+      })
+      return stamped
+    },
+    [persistIfHydrated],
+  )
+
+  const deletePack = useCallback(
+    (id: string) => {
+      setPacks((prev) => {
+        const next = removePack(prev, id)
+        persistIfHydrated(next)
+        return next
+      })
+    },
+    [persistIfHydrated],
+  )
 
   const addSample = useCallback(() => {
     const sample = createSamplePack()
     setPacks((prev) => {
       const next = upsertPack(prev, sample)
-      void persistPacks(next).then((result) => {
-        setLastPersistError(result.ok ? null : result.error)
-      })
+      persistIfHydrated(next)
       return next
     })
     return sample
-  }, [])
+  }, [persistIfHydrated])
 
-  const importPack = useCallback((pack: KnowledgePack) => {
-    const stamped: KnowledgePack = {
-      ...pack,
-      id: crypto.randomUUID(),
-      updatedAt: new Date().toISOString(),
-    }
-    setPacks((prev) => {
-      const next = upsertPack(prev, stamped)
-      void persistPacks(next).then((result) => {
-        setLastPersistError(result.ok ? null : result.error)
+  const importPack = useCallback(
+    (pack: KnowledgePack) => {
+      const stamped: KnowledgePack = {
+        ...pack,
+        id: crypto.randomUUID(),
+        updatedAt: new Date().toISOString(),
+      }
+      setPacks((prev) => {
+        const next = upsertPack(prev, stamped)
+        persistIfHydrated(next)
+        return next
       })
-      return next
-    })
-    return stamped
-  }, [])
+      return stamped
+    },
+    [persistIfHydrated],
+  )
 
   const getPack = useCallback(
     (id: string) => packs.find((p) => p.id === id),
