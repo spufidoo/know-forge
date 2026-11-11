@@ -37,6 +37,10 @@ import { useEffect, useMemo, useRef, useState } from "react"
 
 const MAX_UPLOAD_BYTES = 24 * 1024 * 1024
 
+/** Outline controls on the dark recorder panel — keep mist text on hover. */
+const darkPanelOutlineBtn =
+  "border-white/20 bg-transparent text-[var(--mist)] hover:bg-white/10 hover:text-[var(--mist)]"
+
 export function InterviewWorkspace({
   pack,
   onPackChange,
@@ -427,7 +431,7 @@ export function InterviewWorkspace({
                 <Button
                   size="lg"
                   variant="outline"
-                  className="border-white/20 bg-transparent text-[var(--mist)]"
+                  className={darkPanelOutlineBtn}
                   disabled={saving}
                   onClick={() => void persistRecording()}
                 >
@@ -439,7 +443,7 @@ export function InterviewWorkspace({
             <Button
               size="lg"
               variant="outline"
-              className="border-white/20 bg-transparent text-[var(--mist)]"
+              className={darkPanelOutlineBtn}
               disabled={saving || transcribing || recorder.recording}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -449,7 +453,7 @@ export function InterviewWorkspace({
             <Button
               size="lg"
               variant="outline"
-              className="border-white/20 bg-transparent text-[var(--mist)]"
+              className={darkPanelOutlineBtn}
               onClick={startFresh}
             >
               New session
