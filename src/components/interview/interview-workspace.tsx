@@ -41,6 +41,27 @@ const MAX_UPLOAD_BYTES = 24 * 1024 * 1024
 const darkPanelOutlineBtn =
   "border-white/20 bg-transparent text-[var(--mist)] hover:bg-white/10 hover:text-[var(--mist)]"
 
+/** Map MediaRecorder mime types to a Whisper-friendly filename extension. */
+function extensionForAudioMime(mimeType: string | undefined | null): string {
+  const mime = (mimeType || "").toLowerCase()
+  if (mime.includes("mp4") || mime.includes("m4a") || mime.includes("aac")) {
+    return "mp4"
+  }
+  if (mime.includes("ogg") || mime.includes("opus")) {
+    // audio/webm;codecs=opus is webm — only bare ogg/opus containers use .ogg
+    if (mime.includes("webm")) return "webm"
+    return "ogg"
+  }
+  if (mime.includes("mpeg") || mime.includes("mp3")) return "mp3"
+  if (mime.includes("wav")) return "wav"
+  if (mime.includes("webm")) return "webm"
+  return "webm"
+}
+
+function interviewFilename(mimeType: string | undefined | null): string {
+  return `interview.${extensionForAudioMime(mimeType)}`
+}
+
 export function InterviewWorkspace({
   pack,
   onPackChange,
@@ -128,19 +149,18 @@ export function InterviewWorkspace({
         })
 
       let transcript = recorder.getTranscript()
-      const ext = stopped.mimeType.includes("mp4") ? "mp4" : "webm"
+      let transcriptionError: string | null = null
       try {
         transcript = await ensureTranscriptFromAudio(
           stopped.blob,
           transcript,
-          `interview.${ext}`,
+          interviewFilename(stopped.mimeType),
         )
       } catch (err) {
-        setNotice(
+        transcriptionError =
           err instanceof Error
             ? err.message
-            : "Could not transcribe audio. Paste a transcript or try Upload.",
-        )
+            : "Could not transcribe audio. Paste a transcript or try Upload."
       }
 
       const candidates =
@@ -169,11 +189,18 @@ export function InterviewWorkspace({
         if (audioUrl) URL.revokeObjectURL(audioUrl)
         setAudioUrl(URL.createObjectURL(saved.audioBlob))
       }
-      setNotice(
-        candidates.length
-          ? `Saved and extracted ${candidates.length} candidate entries.`
-          : "Saved interview. Add or edit the transcript, then analyze.",
-      )
+      if (transcriptionError) {
+        // Keep the real Whisper/API error — do not hide it behind a generic save notice.
+        setNotice(
+          `Saved audio, but transcription failed: ${transcriptionError}`,
+        )
+      } else {
+        setNotice(
+          candidates.length
+            ? `Saved and extracted ${candidates.length} candidate entries.`
+            : "Saved interview. Add or edit the transcript, then analyze.",
+        )
+      }
     } finally {
       setSaving(false)
     }
@@ -188,7 +215,7 @@ export function InterviewWorkspace({
           transcript = await ensureTranscriptFromAudio(
             existing.audioBlob,
             transcript,
-            `interview.${existing.mimeType?.includes("mp4") ? "mp4" : "webm"}`,
+            interviewFilename(existing.mimeType),
           )
         } catch (err) {
           setNotice(

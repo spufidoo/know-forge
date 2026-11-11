@@ -11,6 +11,34 @@ function isAllowedFile(file: File) {
   return ALLOWED_EXTS.some((ext) => name.endsWith(ext))
 }
 
+/** Whisper keys off the filename extension — align it with the blob mime type. */
+function whisperFilename(file: File): string {
+  const mime = (file.type || "").toLowerCase()
+  const original = (file.name || "").trim()
+  const lowerName = original.toLowerCase()
+
+  let ext = "webm"
+  if (mime.includes("mp4") || mime.includes("m4a") || mime.includes("aac")) {
+    ext = "mp4"
+  } else if (mime.includes("ogg") || (mime.includes("opus") && !mime.includes("webm"))) {
+    ext = "ogg"
+  } else if (mime.includes("mpeg") || mime.includes("mp3")) {
+    ext = "mp3"
+  } else if (mime.includes("wav")) {
+    ext = "wav"
+  } else if (mime.includes("webm")) {
+    ext = "webm"
+  } else {
+    const fromName = ALLOWED_EXTS.find((candidate) => lowerName.endsWith(candidate))
+    if (fromName) return original || `interview${fromName}`
+  }
+
+  const base =
+    original.replace(/\.[^.]+$/, "").trim() ||
+    "interview"
+  return `${base}.${ext}`
+}
+
 export async function POST(request: Request) {
   const identity = await requireIdentity(request)
   if (identity instanceof Response) return identity
@@ -58,11 +86,7 @@ export async function POST(request: Request) {
   }
 
   const body = new FormData()
-  body.append(
-    "file",
-    file,
-    file.name || `interview.${file.type.includes("mp4") ? "mp4" : "webm"}`,
-  )
+  body.append("file", file, whisperFilename(file))
   body.append("model", "whisper-1")
   body.append("response_format", "json")
 
@@ -76,7 +100,9 @@ export async function POST(request: Request) {
     const detail = await upstream.text().catch(() => "")
     return Response.json(
       {
-        error: "Transcription request failed.",
+        error: detail
+          ? `Transcription request failed: ${detail.slice(0, 300)}`
+          : "Transcription request failed.",
         detail: detail.slice(0, 500),
       },
       { status: 502 },
@@ -87,7 +113,10 @@ export async function POST(request: Request) {
   const text = (json.text ?? "").trim()
   if (!text) {
     return Response.json(
-      { error: "Transcription returned no text." },
+      {
+        error:
+          "Transcription returned no text. The audio may be silent, unsupported, or mislabeled.",
+      },
       { status: 502 },
     )
   }
