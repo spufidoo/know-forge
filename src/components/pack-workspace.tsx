@@ -4,6 +4,7 @@ import { ElicitationRail } from "@/components/elicitation-rail"
 import { EmptyState } from "@/components/empty-state"
 import { EntryList } from "@/components/entry-list"
 import { ExportPanel } from "@/components/export-panel"
+import { PackTransferPanel } from "@/components/pack-transfer-panel"
 import { GotchaEditor } from "@/components/editors/gotcha-editor"
 import { HeuristicEditor } from "@/components/editors/heuristic-editor"
 import { ProcedureEditor } from "@/components/editors/procedure-editor"
@@ -31,8 +32,10 @@ import {
   type EntryKind,
   type KnowledgePack,
 } from "@/lib/types"
+import { useKnowledgeStore } from "@/hooks/use-knowledge-store"
 import { ArrowLeft, Check, Mic, Plus, RotateCcw } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 
 function snapshotPack(pack: KnowledgePack) {
@@ -46,6 +49,8 @@ export function PackWorkspace({
   pack: KnowledgePack
   onChange: (next: KnowledgePack) => void
 }) {
+  const router = useRouter()
+  const { importPack } = useKnowledgeStore()
   const [draft, setDraft] = useState(pack)
   const [savedSnapshot, setSavedSnapshot] = useState(() => snapshotPack(pack))
   const dirty = snapshotPack(draft) !== savedSnapshot
@@ -204,6 +209,7 @@ export function PackWorkspace({
       const exportRes = await fetch("/api/save-interview-export", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({
           sessionId: interview.sessionId,
           packId: stamped.id,
@@ -352,6 +358,21 @@ export function PackWorkspace({
               Record / add interview
             </Link>
           </Button>
+          <PackTransferPanel
+            pack={draft}
+            compact
+            onReplacePack={(next) => {
+              updateDraft(next)
+              onChange(next)
+              setSavedSnapshot(snapshotPack(next))
+              setSaveNotice("Imported pack replaced this pack’s contents.")
+            }}
+            onImportedPack={(next) => {
+              const saved = importPack(next)
+              setSaveNotice(`Imported “${saved.name}” as a new pack.`)
+              router.push(`/pack/${saved.id}`)
+            }}
+          />
           <ExportPanel pack={draft} />
         </div>
       </div>

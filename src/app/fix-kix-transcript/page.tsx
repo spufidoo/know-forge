@@ -93,6 +93,7 @@ export default function FixKixTranscriptPage() {
         await fetch("/api/save-interview-export", {
           method: "POST",
           headers: { "content-type": "application/json" },
+          credentials: "same-origin",
           body: JSON.stringify({
             sessionId: String(target.id),
             packId: String(target.packId || TARGET_PACK),

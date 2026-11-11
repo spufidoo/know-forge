@@ -46,6 +46,7 @@ async function callApi<T>(
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ backend, action, ...body }),
+    credentials: "same-origin",
     cache: "no-store",
   })
   const json = (await res.json()) as {

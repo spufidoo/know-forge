@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { requireIdentity } from "../../../../cursor/identity"
 import {
   getServerSqlBackend,
   isServerSqlBackendId,
@@ -11,8 +12,6 @@ import {
 import type { KnowledgeStore } from "@/lib/types"
 import type { InterviewSessionRecord } from "@/lib/interview-types"
 
-export const runtime = "nodejs"
-
 type Body = {
   backend?: string
   action?: string
@@ -23,6 +22,9 @@ type Body = {
 }
 
 export async function POST(req: Request) {
+  const identity = await requireIdentity(req)
+  if (identity instanceof Response) return identity
+
   let body: Body
   try {
     body = (await req.json()) as Body

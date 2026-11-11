@@ -15,19 +15,15 @@ let pool: MssqlPool | null = null
 export async function createMssqlDriver(): Promise<SqlDriver> {
   if (cached) return cached
 
-  let sql: {
+  type MssqlModule = {
     connect: (config: string | Record<string, unknown>) => Promise<MssqlPool>
   }
+  let sql: MssqlModule
   try {
-    sql = (await import("mssql")) as unknown as {
-      connect: (config: string | Record<string, unknown>) => Promise<MssqlPool>
-      default?: {
-        connect: (
-          config: string | Record<string, unknown>,
-        ) => Promise<MssqlPool>
-      }
+    const mod = (await import("mssql")) as unknown as MssqlModule & {
+      default?: MssqlModule
     }
-    if (!sql.connect && sql.default) sql = sql.default as typeof sql
+    sql = typeof mod.connect === "function" ? mod : (mod.default as MssqlModule)
   } catch {
     throw new Error(
       'SQL Server backend requires the "mssql" package. Run: npm install mssql',
