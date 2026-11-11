@@ -1,5 +1,5 @@
 /* KE Studio offline shell — caches app shell for Android PWA install. */
-const CACHE = "ke-studio-shell-v4"
+const CACHE = "ke-studio-shell-v5"
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

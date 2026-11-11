@@ -204,6 +204,7 @@ export function PackWorkspace({
       const exportRes = await fetch("/api/save-interview-export", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({
           sessionId: interview.sessionId,
           packId: stamped.id,

@@ -56,6 +56,7 @@ export default function RenameSessionPage() {
         await fetch("/api/save-interview-export", {
           method: "POST",
           headers: { "content-type": "application/json" },
+          credentials: "same-origin",
           body: JSON.stringify({
             sessionId: target.id,
             packId: target.packId,

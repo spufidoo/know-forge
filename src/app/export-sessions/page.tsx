@@ -106,6 +106,7 @@ export default function ExportSessionsPage() {
           await fetch("/api/save-interview-export", {
             method: "POST",
             headers: { "content-type": "application/json" },
+            credentials: "same-origin",
             body: JSON.stringify({
               sessionId: target.id,
               packId: target.packId,
@@ -152,6 +153,7 @@ export default function ExportSessionsPage() {
         const saveRes = await fetch("/api/save-interview-export", {
           method: "POST",
           headers: { "content-type": "application/json" },
+          credentials: "same-origin",
           body: JSON.stringify({
             sessionId: target.id,
             packId: target.packId,
