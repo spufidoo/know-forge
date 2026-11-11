@@ -104,7 +104,7 @@ export function resolveSqlitePath(): string {
     "KNOWLEDGE_SQLITE_PATH",
     "KNOWLEDGE_SQLITE_URL",
   )
-  if (url) return path.resolve(stripFileUrl(url))
+  if (url) return path.resolve(/* turbopackIgnore: true */ stripFileUrl(url))
 
   const databaseUrl = firstEnv("DATABASE_URL")
   if (
@@ -114,7 +114,9 @@ export function resolveSqlitePath(): string {
       databaseUrl.startsWith("sqlite:"))
   ) {
     return path.resolve(
-      stripFileUrl(databaseUrl.replace(/^sqlite:/i, "file:")),
+      /* turbopackIgnore: true */ stripFileUrl(
+        databaseUrl.replace(/^sqlite:/i, "file:"),
+      ),
     )
   }
 

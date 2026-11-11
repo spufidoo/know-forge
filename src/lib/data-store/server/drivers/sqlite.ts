@@ -62,21 +62,21 @@ function createFileDriver(file: string): SqlDriver {
       const db = read()
       const s = sql.replace(/\s+/g, " ").trim().toLowerCase()
       if (s.startsWith("select payload from kf_knowledge_store")) {
-        return (db.knowledge ? [db.knowledge] : []) as T[]
+        return (db.knowledge ? [db.knowledge] : []) as unknown as T[]
       }
       if (s.startsWith("select id from kf_knowledge_store")) {
-        return (db.knowledge ? [{ id: 1 }] : []) as T[]
+        return (db.knowledge ? [{ id: 1 }] : []) as unknown as T[]
       }
       if (s.includes("from kf_interview_sessions where pack_id")) {
-        return db.sessions.filter((r) => r.pack_id === params[0]) as T[]
+        return db.sessions.filter((r) => r.pack_id === params[0]) as unknown as T[]
       }
       if (s.includes("from kf_interview_sessions where id")) {
-        return db.sessions.filter((r) => r.id === params[0]) as T[]
+        return db.sessions.filter((r) => r.id === params[0]) as unknown as T[]
       }
       if (s.startsWith("select") && s.includes("from kf_interview_sessions")) {
-        return db.sessions as T[]
+        return db.sessions as unknown as T[]
       }
-      return [] as T[]
+      return [] as unknown as T[]
     },
     async execute(sql: string, params: unknown[] = []) {
       const s = sql.replace(/\s+/g, " ").trim().toLowerCase()
